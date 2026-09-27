@@ -1,0 +1,897 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AFTER DARK III</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<style>
+  :root {
+    --bg: #000; --ink: #f3f3ff; --soft: #8a8fa8; --line: #1a1b28;
+    --cobalt: #3d4dff; --violet: #8b5cff; --magenta: #ff3fd0; --lime: #c6ff3d;
+    --display: clamp(3.4rem, 1rem + 12vw, 15rem);
+    --headline: clamp(2.8rem, 1rem + 7vw, 9rem);
+    --gutter: clamp(16px, 5vw, 80px);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--ink); font-family: 'Pretendard Variable', system-ui, sans-serif; overflow-x: clip; cursor: none; }
+  a, button { cursor: none; }
+  ::selection { background: var(--cobalt); }
+
+  /* global overlays */
+  #gl { position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: 0; display: block; }
+  #dust { position: fixed; inset: 0; z-index: 60; pointer-events: none; }
+  .grain { position: fixed; inset: -50%; z-index: 55; pointer-events: none; opacity: .085; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); animation: grain .5s steps(4) infinite; }
+  @keyframes grain { 0% { transform: translate(0,0); } 25% { transform: translate(-3%,2%); } 50% { transform: translate(2%,-3%); } 75% { transform: translate(-2%,-1%); } 100% { transform: translate(0,0); } }
+  .cursor { position: fixed; left: 0; top: 0; width: 16px; height: 16px; border-radius: 50%; background: #fff; mix-blend-mode: difference; pointer-events: none; z-index: 70; transform: translate(-50%, -50%); transition: width .25s, height .25s; }
+  .cursor.big { width: 84px; height: 84px; }
+  .progress { position: fixed; left: 0; top: 0; height: 3px; width: 100%; z-index: 65; transform-origin: left; transform: scaleX(0); background: linear-gradient(90deg, var(--cobalt), var(--violet), var(--magenta), var(--lime)); }
+  .hud { position: fixed; left: var(--gutter); bottom: 28px; z-index: 50; display: flex; align-items: center; gap: 14px; font-size: 12px; letter-spacing: .28em; color: var(--soft); mix-blend-mode: difference; pointer-events: none; }
+  .hud b { color: var(--ink); font-weight: 700; font-variant-numeric: tabular-nums; }
+  .hud i { display: block; width: 44px; height: 1px; background: currentColor; }
+
+  main { position: relative; z-index: 1; }
+  .scene { position: relative; height: var(--len); }
+  .scene.opaque { background: var(--bg); }
+  .pin { position: sticky; top: 0; height: 100vh; overflow: hidden; }
+  .ln { display: block; }
+  .ch { display: inline-block; will-change: transform; }
+  .ci { display: inline-block; }
+
+  /* 01 hero */
+  .hero .pin { display: grid; place-items: center; text-align: center; }
+  .kicker { position: absolute; top: 9vh; left: 0; right: 0; font-size: 13px; letter-spacing: .34em; color: var(--soft); margin: 0; }
+  .title { font-size: var(--display); font-weight: 900; line-height: .82; letter-spacing: -.065em; margin: 0; perspective: 900px; }
+  .title-wrap { position: relative; }
+  .iii { position: absolute; right: -.2em; top: -.35em; font-size: calc(var(--display) * .56); font-weight: 900; font-style: italic; letter-spacing: -.02em; color: var(--lime); text-shadow: 0 0 40px rgba(198, 255, 61, .45); pointer-events: none; will-change: transform, opacity; }
+  .hero-sub { position: absolute; bottom: 15vh; left: 0; right: 0; margin: 0; color: #c9cce0; font-size: clamp(1rem, .9rem + .4vw, 1.25rem); }
+  .scroll-cue { position: absolute; bottom: 4vh; left: 50%; transform: translateX(-50%); font-size: 12px; letter-spacing: .25em; color: var(--soft); }
+  .scroll-cue::after { content: ''; display: block; width: 1px; height: 48px; margin: 10px auto 0; background: linear-gradient(var(--ink), transparent); animation: drip 1.8s infinite; transform-origin: top; }
+  @keyframes drip { 0% { transform: scaleY(0); } 60% { transform: scaleY(1); } 100% { transform: scaleY(1); opacity: 0; } }
+
+  /* 02 marquee */
+  .marquee { overflow: hidden; padding: 7vh 0; border-block: 1px solid var(--line); background: var(--bg); position: relative; }
+  .marquee-track { display: flex; gap: 4vw; white-space: nowrap; font-size: clamp(3rem, 1rem + 8vw, 10rem); font-weight: 900; letter-spacing: -.04em; will-change: transform; width: max-content; }
+  .marquee-track span:nth-child(odd) { -webkit-text-stroke: 1.5px var(--ink); color: transparent; }
+  .marquee-track span:nth-child(4n) { color: var(--magenta); -webkit-text-stroke: 0; }
+  .marquee-track span:nth-child(4n+2) { color: var(--lime); -webkit-text-stroke: 0; }
+
+  /* 03 morph */
+  .scramble { position: absolute; top: 10vh; left: var(--gutter); font-family: ui-monospace, Consolas, monospace; font-size: clamp(1.1rem, .8rem + 1.4vw, 2.2rem); color: var(--lime); min-height: 1.3em; }
+  .morph-copy { position: absolute; left: var(--gutter); bottom: 12vh; }
+  .morph-name { font-size: var(--headline); font-weight: 900; letter-spacing: -.06em; line-height: .9; }
+  .morph-copy p { margin: 1.4vh 0 0; color: #c9cce0; font-size: clamp(1.05rem, .9rem + .6vw, 1.6rem); font-weight: 600; }
+  .morph-dots { position: absolute; right: var(--gutter); top: 50%; transform: translateY(-50%); list-style: none; margin: 0; padding: 0; display: grid; gap: 18px; }
+  .morph-dots li { width: 10px; height: 10px; border-radius: 50%; border: 1.5px solid var(--soft); transition: background .3s, transform .3s, border-color .3s; }
+  .morph-dots li.on { background: var(--lime); border-color: var(--lime); transform: scale(1.5); }
+
+  /* shared video scenes */
+  .vwrap { position: absolute; inset: 0; will-change: transform, opacity; }
+  .vwrap video { width: 100%; height: 100%; object-fit: cover; display: block; background: var(--bg); }
+  .shade { position: absolute; inset: 0; background: radial-gradient(ellipse at center, transparent 30%, rgba(0,0,0,.75)); pointer-events: none; }
+  .v-head { position: absolute; margin: 0; font-size: var(--headline); font-weight: 900; line-height: .9; letter-spacing: -.06em; }
+
+  /* 04 fog */
+  .fog .v-head { left: var(--gutter); top: 16vh; }
+  .fog-words { position: absolute; left: var(--gutter); right: var(--gutter); bottom: 12vh; margin: 0; max-width: 17em; font-size: clamp(1.5rem, 1rem + 2.4vw, 3.6rem); font-weight: 800; line-height: 1.18; letter-spacing: -.03em; }
+  .fog-words .w { opacity: .14; transition: opacity .2s, color .2s; }
+  .fog-words .w.on { opacity: 1; }
+  .fog-words .w.hl.on { color: var(--lime); }
+
+  /* 05 kinetic */
+  .kin .pin { display: grid; place-items: center; perspective: 900px; }
+  .kin-line { position: absolute; font-size: clamp(3.4rem, 1rem + 11vw, 14rem); font-weight: 900; letter-spacing: -.06em; line-height: 1; white-space: nowrap; transform-style: preserve-3d; }
+  .kin-line .ch { transform-style: preserve-3d; }
+  .kin-bg { position: absolute; font-size: clamp(8rem, 2rem + 30vw, 40rem); font-weight: 900; letter-spacing: -.08em; color: transparent; -webkit-text-stroke: 1.5px #1f2140; white-space: nowrap; will-change: transform; }
+
+  /* 06 tunnel */
+  .tunnel .pin { perspective: 800px; display: grid; place-items: center; }
+  .layer { position: absolute; width: min(44vw, 500px); aspect-ratio: 2 / 3; border-radius: 18px; overflow: hidden; will-change: transform, opacity; box-shadow: 0 60px 120px -40px rgba(61, 77, 255, .6); opacity: 0; }
+  .layer img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .tunnel-title { position: absolute; z-index: 5000; font-size: clamp(3rem, 1rem + 12vw, 15rem); font-weight: 900; letter-spacing: -.06em; mix-blend-mode: difference; pointer-events: none; }
+
+  /* 07 portal */
+  .portal-base { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; }
+  .portal-base h2 { margin: 0; font-size: var(--headline); font-weight: 900; line-height: .92; letter-spacing: -.06em; color: #2a2c48; }
+  .portal-base p { position: absolute; bottom: 14vh; left: 0; right: 0; margin: 0; color: var(--soft); letter-spacing: .08em; }
+  .portal-top { position: absolute; inset: 0; clip-path: circle(0px at 50% 50%); }
+  .portal-top .v-head { left: 0; right: 0; top: 50%; transform: translateY(-50%); text-align: center; text-shadow: 0 10px 60px rgba(0,0,0,.6); }
+  .portal-ring { position: absolute; left: 0; top: 0; border-radius: 50%; border: 1.5px solid rgba(198, 255, 61, .8); box-shadow: 0 0 40px rgba(198, 255, 61, .35), inset 0 0 40px rgba(139, 92, 255, .35); pointer-events: none; will-change: transform; }
+
+  /* 08 gallery */
+  .gallery .pin { display: flex; align-items: center; }
+  .rail { display: flex; gap: 4vw; padding: 0 10vw; will-change: transform; align-items: center; }
+  .card { position: relative; flex: none; width: min(30vw, 420px); aspect-ratio: 2 / 3; border-radius: 22px; overflow: hidden; transform-style: preserve-3d; transition: transform .2s ease-out; box-shadow: 0 40px 80px -40px rgba(61, 77, 255, .6); margin: 0; }
+  .card img { position: absolute; inset: 0 -10%; width: 120%; height: 100%; object-fit: cover; will-change: transform; }
+  .card figcaption { position: absolute; left: 22px; bottom: 20px; right: 22px; z-index: 2; }
+  .card figcaption b { display: block; font-size: 2rem; font-weight: 900; letter-spacing: -.03em; }
+  .card figcaption span { color: #c7cbe0; font-size: .92rem; }
+  .card::after { content: ''; position: absolute; inset: 0; background: linear-gradient(transparent 55%, rgba(0,0,0,.85)); }
+  .card .glare { position: absolute; inset: 0; z-index: 3; background: radial-gradient(circle at var(--gx, 50%) var(--gy, 50%), rgba(255,255,255,.25), transparent 45%); mix-blend-mode: overlay; pointer-events: none; }
+  .gallery-intro { flex: none; width: min(34vw, 440px); }
+  .gallery-intro h2 { font-size: clamp(2.5rem, 1rem + 4vw, 5.5rem); line-height: .95; margin: 0 0 1rem; letter-spacing: -.05em; }
+  .gallery-intro p { color: var(--soft); margin: 0; }
+
+  .pos-jelly { object-position: 74% 30%; }
+
+  /* 09 pixel sort */
+  .pix-cap { position: absolute; left: var(--gutter); bottom: 12vh; margin: 0; font-size: var(--headline); font-weight: 900; line-height: .92; letter-spacing: -.06em; opacity: 0; text-shadow: 0 8px 50px rgba(0,0,0,.7); will-change: transform, opacity; }
+  .pix-idx { position: absolute; right: var(--gutter); top: 10vh; font-size: 13px; letter-spacing: .3em; color: #c9cce0; }
+
+  /* 10 split */
+  .split-under { position: absolute; inset: 0; }
+  .split-under .v-head { left: var(--gutter); bottom: 12vh; }
+  .half { position: absolute; inset: 0; will-change: transform; }
+  .half.l { clip-path: inset(0 50% 0 0); }
+  .half.r { clip-path: inset(0 0 0 50%); }
+  .cover { position: absolute; inset: 0; display: grid; place-items: center; background: #04040a url('../assets/img/chrome.webp') center / cover no-repeat; }
+  .cover::before { content: ''; position: absolute; inset: 0; background: rgba(0,0,0,.55); }
+  .cover h2 { position: relative; margin: 0; text-align: center; font-size: var(--display); font-weight: 900; line-height: .85; letter-spacing: -.07em; }
+  .cover h2 em { font-style: normal; color: transparent; -webkit-text-stroke: 2px var(--ink); }
+  .seam { position: absolute; top: 0; bottom: 0; left: 50%; width: 2px; margin-left: -1px; background: var(--lime); box-shadow: 0 0 30px var(--lime); transform-origin: top; }
+
+  /* 11 warp */
+  .warp .pin { display: grid; place-items: center; }
+  .warp-word { position: absolute; font-size: clamp(3rem, 1rem + 10vw, 13rem); font-weight: 900; letter-spacing: -.06em; opacity: 0; will-change: transform, opacity; white-space: nowrap; }
+  .warp-word.o { color: transparent; -webkit-text-stroke: 2px var(--lime); }
+  .warp-speed { position: absolute; right: var(--gutter); bottom: 12vh; text-align: right; color: var(--soft); font-size: 13px; letter-spacing: .2em; }
+  .warp-speed b { display: block; color: var(--ink); font-size: clamp(2rem, 1rem + 3vw, 4rem); letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+
+  /* 12 fan */
+  .fan .pin { display: grid; place-items: center; }
+  .fan-head { position: absolute; top: 9vh; left: 0; right: 0; text-align: center; margin: 0; font-size: clamp(2.2rem, 1rem + 4.5vw, 6rem); font-weight: 900; letter-spacing: -.05em; line-height: .95; }
+  .fan-deck { position: relative; width: min(30vh, 44vw); aspect-ratio: 2 / 3; margin-top: 18vh; }
+  .fcard { position: absolute; inset: 0; border-radius: 16px; overflow: hidden; transform-origin: 50% 170%; box-shadow: 0 30px 60px -20px rgba(0,0,0,.9), 0 0 0 1px rgba(255,255,255,.06); will-change: transform, opacity; }
+  .fcard img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+  /* 13 count */
+  .count .pin { display: grid; place-items: center; }
+  .count-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6vh 8vw; padding: 0 var(--gutter); width: 100%; max-width: 1400px; }
+  .stat b { display: block; font-size: clamp(3rem, 1rem + 8vw, 10rem); font-weight: 900; letter-spacing: -.06em; line-height: .9; font-variant-numeric: tabular-nums; }
+  .stat span { color: var(--soft); font-size: clamp(1rem, .9rem + .5vw, 1.4rem); }
+  .stat:nth-child(1) b { color: var(--cobalt); }
+  .stat:nth-child(2) b { color: var(--violet); }
+  .stat:nth-child(3) b { color: var(--magenta); }
+  .stat:nth-child(4) b { color: var(--lime); }
+  .count-ring { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(90vh, 90vw); height: min(90vh, 90vw); opacity: .5; pointer-events: none; }
+
+  /* 14 finale */
+  .fin-copy { position: absolute; left: 0; right: 0; bottom: 8vh; text-align: center; opacity: 0; }
+  .fin-copy p { margin: 0 0 3vh; color: #c9cce0; font-size: clamp(1rem, .9rem + .5vw, 1.3rem); }
+  .magnet { display: inline-grid; place-items: center; width: 150px; height: 150px; border-radius: 50%; background: var(--cobalt); color: #fff; font: 800 1.05rem 'Pretendard Variable', sans-serif; border: 0; box-shadow: 0 0 80px rgba(61, 77, 255, .7); will-change: transform; }
+  .magnet span { pointer-events: none; will-change: transform; }
+  .magnet:focus-visible { outline: 3px solid var(--lime); outline-offset: 6px; }
+
+  @media (max-width: 760px) {
+    .card { width: 70vw; }
+    .gallery-intro { width: 70vw; }
+    .count-grid { grid-template-columns: 1fr; gap: 3vh; }
+    .morph-dots { display: none; }
+  }
+  @media (pointer: coarse) {
+    html, body, a, button { cursor: auto; }
+    .cursor { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .grain, .scroll-cue::after { animation: none; }
+  }
+</style>
+</head>
+<body>
+<canvas id="gl" aria-hidden="true"></canvas>
+<canvas id="dust" aria-hidden="true"></canvas>
+<div class="grain" aria-hidden="true"></div>
+<div class="cursor" id="cursor" aria-hidden="true"></div>
+<div class="progress" id="progress" aria-hidden="true"></div>
+<div class="hud" aria-hidden="true"><b id="hud-i">01</b><i></i><span id="hud-n">AURORA</span></div>
+
+<main>
+  <section class="scene hero" id="s-hero" data-scene="AURORA" style="--len:200vh">
+    <div class="pin">
+      <p class="kicker">INTERACTION STUDY 2026</p>
+      <div class="title-wrap"><h1 class="title" id="title" data-split>AFTER|DARK</h1><div class="iii" id="iii" aria-hidden="true">III</div></div>
+      <p class="hero-sub">1분 동안 멈추지 말고 내려가세요</p>
+      <div class="scroll-cue">SCROLL</div>
+    </div>
+  </section>
+
+  <div class="marquee" id="marquee" data-scene="VELOCITY"><div class="marquee-track" id="marquee-track">
+    <span>AFTER DARK III</span><span>밤은 길다</span><span>빛은</span><span>어둠에서</span><span>시작된다</span><span>AFTER DARK III</span><span>밤은 길다</span><span>빛은</span><span>어둠에서</span><span>시작된다</span>
+  </div></div>
+
+  <section class="scene morph" id="s-morph" data-scene="MORPH" style="--len:1200vh">
+    <div class="pin">
+      <div class="scramble" id="scramble" aria-live="polite"></div>
+      <div class="morph-copy"><div class="morph-name" id="morph-name">SPHERE</div><p id="morph-cap">하나의 구에서 시작한다</p></div>
+      <ol class="morph-dots" id="morph-dots"></ol>
+    </div>
+  </section>
+
+  <section class="scene fog opaque" id="s-fog" data-scene="FOG" style="--len:350vh">
+    <div class="pin">
+      <div class="vwrap" id="fog-v"><video autoplay muted loop playsinline preload="auto" poster="../assets/video/v1.webp"><source src="../assets/video/v1.mp4" type="video/mp4"></video></div>
+      <div class="shade"></div>
+      <h2 class="v-head" id="fog-head" data-split>안개가|걷히면</h2>
+      <p class="fog-words" id="fog-words">보이지 않던 것들이 천천히 윤곽을 드러낸다. 서두르지 않아도 된다. 어둠은 충분히 길다.</p>
+    </div>
+  </section>
+
+  <section class="scene kin opaque" id="s-kin" data-scene="KINETIC" style="--len:550vh">
+    <div class="pin">
+      <div class="kin-bg" id="kin-bg" aria-hidden="true">BEGIN AGAIN</div>
+      <div class="kin-line" id="kin-a" data-split>어둠은</div>
+      <div class="kin-line" id="kin-b" data-split>끝이 아니라</div>
+      <div class="kin-line" id="kin-c" data-split>시작이다</div>
+    </div>
+  </section>
+
+  <section class="scene tunnel opaque" id="s-tunnel" data-scene="DIVE" style="--len:500vh">
+    <div class="pin">
+      <div class="tunnel-title" id="tunnel-title">DIVE</div>
+      <div class="layer"><img src="../assets/img/glass.webp" alt=""></div>
+      <div class="layer"><img src="../assets/img/orb.webp" alt=""></div>
+      <div class="layer"><img src="../assets/img/bloom.webp" alt=""></div>
+      <div class="layer"><img class="pos-jelly" src="../assets/img/jelly.webp" alt=""></div>
+      <div class="layer"><img src="../assets/img/chrome.webp" alt=""></div>
+      <div class="layer"><img src="../assets/img/eclipse.webp" alt=""></div>
+    </div>
+  </section>
+
+  <section class="scene portal opaque" id="s-portal" data-scene="PORTAL" style="--len:400vh">
+    <div class="pin">
+      <div class="portal-base"><h2 data-split>어딘가에|문이 있다</h2><p>마우스를 움직여 문을 찾으세요</p></div>
+      <div class="portal-top" id="portal-top">
+        <div class="vwrap" id="portal-v"><video autoplay muted loop playsinline preload="auto" poster="../assets/video/v2.webp"><source src="../assets/video/v2.mp4" type="video/mp4"></video></div>
+        <div class="shade"></div>
+        <h2 class="v-head" id="portal-head" data-split>우주가|열린다</h2>
+      </div>
+      <div class="portal-ring" id="portal-ring"></div>
+    </div>
+  </section>
+
+  <section class="scene gallery opaque" id="s-gallery" data-scene="DRIFT" style="--len:500vh">
+    <div class="pin">
+      <div class="rail" id="rail">
+        <div class="gallery-intro"><h2>밤에만<br>보이는<br>것들</h2><p>스크롤하면 옆으로 흐릅니다. 카드 위에서 마우스를 움직이면 기울어집니다.</p></div>
+        <figure class="card"><img src="../assets/img/chrome.webp" alt="녹아내리는 크롬 조각"><div class="glare"></div><figcaption><b>Liquid</b><span>녹아내리는 크롬</span></figcaption></figure>
+        <figure class="card"><img src="../assets/img/glass.webp" alt="별이 담긴 유리 두상"><div class="glare"></div><figcaption><b>Mind</b><span>별이 담긴 유리 두상</span></figcaption></figure>
+        <figure class="card"><img src="../assets/img/eclipse.webp" alt="보랏빛 코로나를 두른 일식"><div class="glare"></div><figcaption><b>Corona</b><span>가려진 태양</span></figcaption></figure>
+        <figure class="card"><img src="../assets/img/orb.webp" alt="빛이 새어 나오는 흑요석 구체"><div class="glare"></div><figcaption><b>Core</b><span>갈라진 흑요석</span></figcaption></figure>
+        <figure class="card"><img class="pos-jelly" src="../assets/img/jelly.webp" alt="빛나는 해파리"><div class="glare"></div><figcaption><b>Drift</b><span>심해의 해파리</span></figcaption></figure>
+        <figure class="card"><img src="../assets/img/mask.webp" alt="균열이 빛나는 흑요석 얼굴"><div class="glare"></div><figcaption><b>Mask</b><span>잠든 얼굴</span></figcaption></figure>
+        <figure class="card"><img src="../assets/img/bloom.webp" alt="빛나는 광섬유 꽃"><div class="glare"></div><figcaption><b>Bloom</b><span>광섬유 꽃</span></figcaption></figure>
+      </div>
+    </div>
+  </section>
+
+  <section class="scene pixel" id="s-pixel" data-scene="PIXEL SORT" style="--len:500vh">
+    <div class="pin">
+      <div class="pix-idx" id="pix-idx">1 / 3</div>
+      <h2 class="pix-cap">빛이 가려지면<br>테두리가 보인다</h2>
+      <h2 class="pix-cap">떠다니는 것은<br>가라앉지 않는다</h2>
+      <h2 class="pix-cap">깨진 틈으로<br>빛이 샌다</h2>
+    </div>
+  </section>
+
+  <section class="scene split opaque" id="s-split" data-scene="SPLIT" style="--len:450vh">
+    <div class="pin">
+      <div class="split-under">
+        <div class="vwrap" id="split-v"><video autoplay muted loop playsinline preload="auto" poster="../assets/video/v3.webp"><source src="../assets/video/v3.mp4" type="video/mp4"></video></div>
+        <div class="shade"></div>
+        <h2 class="v-head" id="split-head" data-split>크롬의|바다</h2>
+      </div>
+      <div class="half l" id="half-l"><div class="cover"><h2>둘로<br><em>갈라진다</em></h2></div></div>
+      <div class="half r" id="half-r"><div class="cover"><h2>둘로<br><em>갈라진다</em></h2></div></div>
+      <div class="seam" id="seam"></div>
+    </div>
+  </section>
+
+  <section class="scene warp" id="s-warp" data-scene="WARP" style="--len:500vh">
+    <div class="pin">
+      <div class="warp-word">빛보다</div>
+      <div class="warp-word o">빠르게</div>
+      <div class="warp-word">더 깊이</div>
+      <div class="warp-word o">WARP</div>
+      <div class="warp-speed">SPEED<b id="warp-speed">0.00c</b></div>
+    </div>
+  </section>
+
+  <section class="scene fan opaque" id="s-fan" data-scene="FAN" style="--len:450vh">
+    <div class="pin">
+      <h2 class="fan-head">펼치면<br>보인다</h2>
+      <div class="fan-deck" id="fan-deck">
+        <div class="fcard"><img src="../assets/img/bloom.webp" alt=""></div>
+        <div class="fcard"><img class="pos-jelly" src="../assets/img/jelly.webp" alt=""></div>
+        <div class="fcard"><img src="../assets/img/glass.webp" alt=""></div>
+        <div class="fcard"><img src="../assets/img/mask.webp" alt="균열이 빛나는 흑요석 얼굴"></div>
+        <div class="fcard"><img src="../assets/img/orb.webp" alt=""></div>
+        <div class="fcard"><img src="../assets/img/eclipse.webp" alt=""></div>
+        <div class="fcard"><img src="../assets/img/chrome.webp" alt=""></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="scene count opaque" id="s-count" data-scene="COUNT" style="--len:350vh">
+    <div class="pin">
+      <svg class="count-ring" viewBox="0 0 200 200" aria-hidden="true">
+        <circle cx="100" cy="100" r="92" fill="none" stroke="#15162a" stroke-width="1"/>
+        <circle id="count-arc" cx="100" cy="100" r="92" fill="none" stroke="url(#ringg)" stroke-width="1.6" stroke-linecap="round" transform="rotate(-90 100 100)"/>
+        <defs><linearGradient id="ringg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3d4dff"/><stop offset=".5" stop-color="#ff3fd0"/><stop offset="1" stop-color="#c6ff3d"/></linearGradient></defs>
+      </svg>
+      <div class="count-grid" id="count-grid"></div>
+    </div>
+  </section>
+
+  <section class="scene finale" id="s-finale" data-scene="끝" style="--len:650vh">
+    <div class="pin">
+      <div class="fin-copy" id="fin-copy">
+        <p>끝까지 와줘서 고마워요</p>
+        <button class="magnet" id="magnet" type="button"><span>처음으로</span></button>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/lenis@1.1.13/dist/lenis.min.js"></script>
+<script type="module">
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+
+/* ───────── config ───────── */
+const CONFIG = {
+  particles: 10000,
+  stars: 5000,
+  dprMax: 1.5,
+  lenisLerp: 0.08,
+  palette: { cobalt: '#3d4dff', violet: '#8b5cff', magenta: '#ff3fd0', lime: '#c6ff3d', white: '#ffffff' },
+  dustColors: ['#ffffff', '#9aa6ff', '#ff3fd0', '#c6ff3d'],
+  glyphs: '!<>-_\\/[]{}=+*^?#01アイウエオカキクケコ',
+};
+// Images that WebGL or canvas sampling reads must be same-origin, so they are inlined at build time.
+const TEX = { eclipse: '%%IMG:eclipse%%', jelly: '%%IMG:jelly%%', orb: '%%IMG:orb%%', face: '%%IMG:glass%%' };
+const SHAPES = [
+  { name: 'SPHERE', cap: '하나의 구에서 시작한다', a: 'cobalt', b: 'magenta' },
+  { name: 'GALAXY', cap: '흩어져 은하가 되고', a: 'violet', b: 'magenta' },
+  { name: 'KNOT', cap: '스스로를 묶었다가', a: 'cobalt', b: 'lime' },
+  { name: 'NIGHT', cap: '글자가 되어 밤을 쓴다', a: 'cobalt', b: 'white' },
+  { name: 'HEART', cap: '뛰기 시작한다', a: 'magenta', b: 'violet' },
+  { name: 'FACE', cap: '마침내 얼굴이 된다', a: 'cobalt', b: 'white' },
+];
+
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const clamp01 = (v) => Math.min(1, Math.max(0, v));
+const seg = (p, a, b) => clamp01((p - a) / (b - a));
+const smooth = (x) => x * x * (3 - 2 * x);
+const rand = (a, b) => a + Math.random() * (b - a);
+const $ = (s) => document.querySelector(s);
+const $$ = (s) => [...document.querySelectorAll(s)];
+const col = (name) => new THREE.Color(CONFIG.palette[name]);
+
+/* ───────── scroll engine ───────── */
+gsap.registerPlugin(ScrollTrigger);
+const lenis = reduce ? null : new Lenis({ lerp: CONFIG.lenisLerp });
+if (lenis) { lenis.on('scroll', ScrollTrigger.update); gsap.ticker.add((t) => lenis.raf(t * 1000)); gsap.ticker.lagSmoothing(0); }
+const velocity = () => (lenis ? lenis.velocity : 0);
+
+/** Progress of a sticky scene plus an optional visibility flag while any part is on screen. */
+function track(sel, onProgress, onVisible) {
+  const el = $(sel);
+  onProgress(0);
+  ScrollTrigger.create({ trigger: el, start: 'top top', end: 'bottom bottom', onUpdate: (s) => onProgress(s.progress) });
+  if (onVisible) ScrollTrigger.create({ trigger: el, start: 'top bottom', end: 'bottom top', onToggle: (s) => onVisible(s.isActive) });
+}
+
+/** Split "line|line" text into .ln > .ch > .ci spans and return the .ch nodes. */
+function split(el) {
+  const lines = el.textContent.split('|');
+  el.setAttribute('aria-label', lines.join(' '));
+  el.innerHTML = lines.map((l) => `<span class="ln" aria-hidden="true">${[...l].map((c) => c === ' ' ? '<span class="ch sp">&nbsp;</span>' : `<span class="ch"><span class="ci">${c}</span></span>`).join('')}</span>`).join('');
+  return [...el.querySelectorAll('.ch:not(.sp)')];
+}
+$$('[data-split]').forEach(split);
+
+/* ───────── pointer, cursor, stardust ───────── */
+const pointer = { x: innerWidth / 2, y: innerHeight / 2, nx: 0, ny: 0 };
+addEventListener('pointermove', (e) => { pointer.x = e.clientX; pointer.y = e.clientY; pointer.nx = (e.clientX / innerWidth) * 2 - 1; pointer.ny = -(e.clientY / innerHeight) * 2 + 1; });
+const cursor = $('#cursor'), cpos = { x: pointer.x, y: pointer.y };
+gsap.ticker.add(() => { cpos.x += (pointer.x - cpos.x) * 0.2; cpos.y += (pointer.y - cpos.y) * 0.2; cursor.style.transform = `translate(${cpos.x}px, ${cpos.y}px) translate(-50%, -50%)`; });
+$$('.card, .magnet, .title, .fcard').forEach((el) => {
+  el.addEventListener('pointerenter', () => cursor.classList.add('big'));
+  el.addEventListener('pointerleave', () => cursor.classList.remove('big'));
+});
+
+const dust = $('#dust'), dctx = dust.getContext('2d'), bits = [];
+const fitDust = () => { dust.width = innerWidth; dust.height = innerHeight; };
+fitDust(); addEventListener('resize', fitDust);
+addEventListener('pointermove', (e) => {
+  if (reduce) return;
+  for (let i = 0; i < 4; i++) bits.push({ x: e.clientX, y: e.clientY, vx: rand(-1, 1), vy: rand(-1.6, .4), life: 1, c: CONFIG.dustColors[i % CONFIG.dustColors.length] });
+});
+let dustDirty = false;
+gsap.ticker.add(() => {
+  if (!bits.length && !dustDirty) return;
+  dctx.clearRect(0, 0, dust.width, dust.height);
+  for (let i = bits.length - 1; i >= 0; i--) {
+    const p = bits[i]; p.vy += .05; p.x += p.vx; p.y += p.vy; p.life -= .018;
+    if (p.life <= 0) { bits.splice(i, 1); continue; }
+    dctx.globalAlpha = p.life; dctx.fillStyle = p.c; dctx.shadowColor = p.c; dctx.shadowBlur = 10;
+    dctx.beginPath(); dctx.arc(p.x, p.y, 2 * p.life, 0, Math.PI * 2); dctx.fill();
+  }
+  dctx.globalAlpha = 1; dctx.shadowBlur = 0;
+  dustDirty = bits.length > 0;
+});
+
+/* ───────── progress bar + HUD ───────── */
+const progressEl = $('#progress');
+ScrollTrigger.create({ start: 0, end: 'max', onUpdate: (s) => { progressEl.style.transform = `scaleX(${s.progress})`; } });
+const sceneEls = $$('[data-scene]');
+const hudI = $('#hud-i'), hudN = $('#hud-n');
+sceneEls.forEach((el, i) => ScrollTrigger.create({ trigger: el, start: 'top center', end: 'bottom center',
+  onToggle: (s) => { if (s.isActive) { hudI.textContent = String(i + 1).padStart(2, '0'); hudN.textContent = el.dataset.scene; } } }));
+
+/* ───────── one WebGL renderer, many modes ───────── */
+const glCanvas = $('#gl');
+const renderer = new THREE.WebGLRenderer({ canvas: glCanvas, antialias: false, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(devicePixelRatio, CONFIG.dprMax));
+renderer.setSize(innerWidth, innerHeight);
+renderer.setClearColor(0x000000, 1);
+renderer.autoClear = false;
+const modes = new Map();
+function addMode(name, scene, camera, update) { modes.set(name, { scene, camera, update, on: new Set() }); }
+function showMode(name, key, on) { const m = modes.get(name); if (on) m.on.add(key); else m.on.delete(key); }
+const FULL_VS = 'varying vec2 vUv;void main(){vUv=uv;gl_Position=vec4(position.xy,0.,1.);}';
+const ortho = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+const quad = new THREE.PlaneGeometry(2, 2);
+const resUniform = { value: new THREE.Vector2(innerWidth, innerHeight) };
+const perspective = (fov, z) => { const c = new THREE.PerspectiveCamera(fov, innerWidth / innerHeight, 0.1, 200); c.position.z = z; return c; };
+
+/* mode: aurora (hero) */
+{
+  const u = { uRes: resUniform, uT: { value: 0 }, uM: { value: new THREE.Vector2(.5, .5) }, uFade: { value: 0 } };
+  const mat = new THREE.ShaderMaterial({ uniforms: u, vertexShader: FULL_VS, depthTest: false, fragmentShader: `
+    precision highp float;varying vec2 vUv;uniform vec2 uRes,uM;uniform float uT,uFade;
+    float h(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
+    float n(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(h(i),h(i+vec2(1,0)),f.x),mix(h(i+vec2(0,1)),h(i+vec2(1,1)),f.x),f.y);}
+    float fbm(vec2 p){float v=0.,a=.5;for(int i=0;i<5;i++){v+=a*n(p);p*=2.;a*=.5;}return v;}
+    void main(){float ar=uRes.x/uRes.y;vec2 q=vUv;q.x*=ar;vec2 mm=uM;mm.x*=ar;float d=distance(q,mm);
+      q+=(q-mm)*.25*exp(-d*4.);
+      float f=fbm(q*2.2+vec2(uT*.05,-uT*.08)+fbm(q*3.-uT*.1));
+      vec3 c=mix(vec3(.0,.0,.02),vec3(.2,.24,1.),smoothstep(.45,.9,f));
+      c=mix(c,vec3(1.,.25,.82),smoothstep(.72,.98,f)*.55);
+      c=mix(c,vec3(.78,1.,.24),smoothstep(.9,1.02,f)*.35);
+      c+=vec3(.25,.3,1.)*exp(-d*9.)*.35; c*=1.-uFade*.9;
+      gl_FragColor=vec4(c,1.);}` });
+  const scene = new THREE.Scene(); scene.add(new THREE.Mesh(quad, mat));
+  const m = { x: .5, y: .5 };
+  addMode('aurora', scene, ortho, (t) => {
+    m.x += (pointer.x / innerWidth - m.x) * .06; m.y += (1 - pointer.y / innerHeight - m.y) * .06;
+    u.uT.value = reduce ? 0 : t; u.uM.value.set(m.x, m.y);
+  });
+  track('#s-hero', (p) => { u.uFade.value = p; }, (on) => showMode('aurora', 'hero', on));
+}
+
+/* mode: particles (morph + finale) */
+const particle = {
+  u: { uT: { value: 0 }, uM: { value: 0 }, uEnd: { value: 0 }, uBurst: { value: 0 }, uAlpha: { value: 1 }, uPx: { value: renderer.getPixelRatio() },
+       uMouse: { value: new THREE.Vector3(99, 99, 0) }, uCA: { value: col('cobalt') }, uCB: { value: col('magenta') } },
+  scene: new THREE.Scene(), camera: perspective(60, 6), points: null, spin: 0,
+};
+addMode('particles', particle.scene, particle.camera, (t, dt) => {
+  const { u, camera, points } = particle;
+  if (!points) return;
+  u.uT.value = reduce ? 0 : t;
+  const v = new THREE.Vector3(pointer.nx, pointer.ny, .5).unproject(camera).sub(camera.position).normalize();
+  u.uMouse.value.copy(camera.position).add(v.multiplyScalar(-camera.position.z / v.z));
+  const m = u.uM.value, flat = clamp01(Math.max(1 - Math.abs(m - 3), 1 - Math.abs(m - 4), m - 4, u.uEnd.value));
+  particle.spin += reduce ? 0 : dt * .12 * (1 - flat);
+  const home = Math.round(particle.spin / (Math.PI * 2)) * Math.PI * 2;
+  const ty = pointer.nx * .5 + particle.spin + (home - particle.spin) * flat, tx = pointer.ny * .3 * (1 - flat) + clamp01(1 - Math.abs(m - 1)) * .75;
+  points.rotation.y += (ty - points.rotation.y) * .05; points.rotation.x += (tx - points.rotation.x) * .05;
+});
+
+function raster(w, h, draw) {
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const x = c.getContext('2d', { willReadFrequently: true }); draw(x, w, h);
+  return { d: x.getImageData(0, 0, w, h).data, w, h };
+}
+function textPoints(text, w, h, fontPx, scale) {
+  const r = raster(w, h, (x) => { x.fillStyle = '#fff'; x.font = `900 ${fontPx}px "Pretendard Variable", sans-serif`; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(text, w / 2, h / 2 + fontPx * .05); });
+  const pts = [];
+  for (let y = 0; y < h; y += 2) for (let xx = 0; xx < w; xx += 2) if (r.d[(y * w + xx) * 4 + 3] > 128) pts.push([(xx - w / 2) / scale, -(y - h / 2) / scale, 0]);
+  if (!pts.length) throw new Error(`text raster "${text}" produced no pixels`);
+  return pts;
+}
+function imagePoints(img, w, h, scale, count) {
+  const r = raster(w, h, (x) => { x.drawImage(img, 0, 0, w, h); });
+  const lum = (i) => (r.d[i] * .3 + r.d[i + 1] * .59 + r.d[i + 2] * .11) / 255;
+  const pts = []; let guard = 0;
+  while (pts.length < count && guard++ < count * 400) {
+    const xx = Math.floor(Math.random() * w), y = Math.floor(Math.random() * h), L = lum((y * w + xx) * 4);
+    if (Math.random() < Math.pow(L, 1.1) * 2) pts.push([(xx - w / 2) / scale, -(y - h / 2) / scale, (L - .3) * 1.2]);
+  }
+  if (pts.length < count * .5) throw new Error('image sampling found too few bright pixels');
+  return pts;
+}
+function fillFrom(pts, jitter, zSpread) {
+  const a = new Float32Array(CONFIG.particles * 3);
+  for (let i = 0; i < CONFIG.particles; i++) { const p = pts[Math.floor(Math.random() * pts.length)]; a.set([p[0] + rand(-jitter, jitter), p[1] + rand(-jitter, jitter), p[2] + rand(-zSpread, zSpread)], i * 3); }
+  return a;
+}
+function genShape(fn) { const a = new Float32Array(CONFIG.particles * 3); for (let i = 0; i < CONFIG.particles; i++) a.set(fn(i), i * 3); return a; }
+const loadImg = (src) => new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => rej(new Error('image failed to load')); i.src = src; });
+
+async function buildParticles() {
+  const [faceImg] = await Promise.all([loadImg(TEX.face), document.fonts.load('900 200px "Pretendard Variable"', 'NIGHT끝')]);
+  const N = CONFIG.particles;
+  const sphere = genShape(() => { const th = rand(0, Math.PI * 2), ph = Math.acos(rand(-1, 1)), r = 2.2; return [r * Math.sin(ph) * Math.cos(th), r * Math.sin(ph) * Math.sin(th), r * Math.cos(ph)]; });
+  const galaxy = genShape((i) => { const rad = Math.pow(Math.random(), .6) * 3.6, ang = rad * 1.6 + (i % 3) * (Math.PI * 2 / 3) + rand(-.25, .25); return [Math.cos(ang) * rad, rand(-.12, .12) * (3.6 - rad), Math.sin(ang) * rad]; });
+  const knot = genShape(() => { const t = rand(0, Math.PI * 2), r = Math.cos(3 * t) + 2, s = .72, o = .28 * Math.cbrt(Math.random()), th = rand(0, Math.PI * 2), ph = Math.acos(rand(-1, 1));
+    return [s * r * Math.cos(2 * t) + o * Math.sin(ph) * Math.cos(th), s * r * Math.sin(2 * t) + o * Math.sin(ph) * Math.sin(th), -s * Math.sin(3 * t) * 1.4 + o * Math.cos(ph)]; });
+  const heart = genShape(() => { const t = rand(0, Math.PI * 2), k = Math.pow(Math.random(), .25), s = .125;
+    return [s * k * 16 * Math.pow(Math.sin(t), 3), s * k * (13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t)) + .3, rand(-.35, .35) * (1.1 - k)]; });
+  const night = fillFrom(textPoints('NIGHT', 1000, 320, 250, 120), .02, .15);
+  const face = fillFrom(imagePoints(faceImg, 300, Math.round(300 * faceImg.height / faceImg.width), 50, N), .012, .04);
+  const end = fillFrom(textPoints('끝', 520, 520, 440, 118).map((q) => [q[0], q[1] + .55, q[2]]), .02, .12);
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(sphere.slice(), 3));
+  [sphere, galaxy, knot, night, heart, face].forEach((a, i) => geo.setAttribute('a' + i, new THREE.BufferAttribute(a, 3)));
+  geo.setAttribute('aEnd', new THREE.BufferAttribute(end, 3));
+  geo.setAttribute('aDir', new THREE.BufferAttribute(genShape(() => { const th = rand(0, Math.PI * 2), ph = Math.acos(rand(-1, 1)); return [Math.sin(ph) * Math.cos(th), Math.sin(ph) * Math.sin(th), Math.cos(ph)]; }), 3));
+  geo.setAttribute('aRnd', new THREE.BufferAttribute(Float32Array.from({ length: N }, Math.random), 1));
+  const mat = new THREE.ShaderMaterial({ uniforms: particle.u, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+    vertexShader: `uniform float uT,uM,uEnd,uBurst,uPx;uniform vec3 uMouse;attribute vec3 a0,a1,a2,a3,a4,a5,aEnd,aDir;attribute float aRnd;varying float vR;
+      float w(float k){return clamp(1.-abs(uM-k),0.,1.);}
+      void main(){vec3 p=a0*w(0.)+a1*w(1.)+a2*w(2.)+a3*w(3.)+a4*w(4.)+a5*w(5.);
+        float tr=1.-abs(fract(uM)-.5)*2.;tr*=step(.001,fract(uM));
+        p+=aDir*tr*(.3+aRnd*.9);
+        p=mix(p,aEnd,uEnd);
+        p+=aDir*uBurst*(1.2+aRnd*3.2)+vec3(0.,uBurst*uBurst*sin(uT*.3+aRnd*9.)*.4,0.);
+        p+=.04*vec3(sin(uT*.7+aRnd*40.),cos(uT*.6+aRnd*30.),sin(uT*.5+aRnd*20.));
+        vec4 mv=modelViewMatrix*vec4(p,1.);vec3 wp=(modelMatrix*vec4(p,1.)).xyz;
+        float d=distance(wp.xy,uMouse.xy);mv.xyz+=normalize(vec3(wp.xy-uMouse.xy,.0001))*exp(-d*2.2)*.8;
+        gl_Position=projectionMatrix*mv;gl_PointSize=(1.2+aRnd*2.4)*uPx*(6./-mv.z)*(1.+uBurst*.35);vR=aRnd;}`,
+    fragmentShader: `uniform vec3 uCA,uCB;uniform float uAlpha,uEnd;varying float vR;
+      void main(){float d=length(gl_PointCoord-.5);if(d>.5)discard;
+        vec3 c=mix(uCA,uCB,smoothstep(.55,1.,vR));c=mix(c,vec3(1.),smoothstep(.94,1.,vR));
+        c=mix(c,mix(vec3(.78,1.,.24),vec3(1.),smoothstep(.5,1.,vR)),uEnd);
+        gl_FragColor=vec4(c,(1.-d*2.)*.9*uAlpha);}` });
+  particle.points = new THREE.Points(geo, mat);
+  particle.scene.add(particle.points);
+}
+function setParticleColors(m) {
+  const i = Math.min(SHAPES.length - 2, Math.floor(m)), f = smooth(clamp01(m - i));
+  particle.u.uCA.value.copy(col(SHAPES[i].a)).lerp(col(SHAPES[i + 1].a), f);
+  particle.u.uCB.value.copy(col(SHAPES[i].b)).lerp(col(SHAPES[i + 1].b), f);
+}
+
+/* mode: pixel sort image transitions */
+{
+  const loader = new THREE.TextureLoader();
+  const asp = new THREE.Vector3(1, 1, 1);
+  const tex = [TEX.eclipse, TEX.jelly, TEX.orb].map((src, i) => { const t = loader.load(src, (tx) => asp.setComponent(i, tx.image.width / tx.image.height), undefined, () => console.error('pixel texture failed to load', i)); t.minFilter = THREE.LinearFilter; t.generateMipmaps = false; return t; });
+  const u = { uRes: resUniform, uT: { value: 0 }, uP: { value: 0 }, uAsp: { value: asp }, uM: { value: new THREE.Vector2(.5, .5) }, uZoom: { value: 0 }, t0: { value: tex[0] }, t1: { value: tex[1] }, t2: { value: tex[2] } };
+  const mat = new THREE.ShaderMaterial({ uniforms: u, vertexShader: FULL_VS, depthTest: false, fragmentShader: `
+    precision highp float;varying vec2 vUv;uniform sampler2D t0,t1,t2;uniform vec2 uRes,uM;uniform float uP,uT,uZoom;uniform vec3 uAsp;
+    float h(float x){return fract(sin(x*127.1)*43758.5453);}
+    vec2 cover(vec2 uv,float a){float s=uRes.x/uRes.y;vec2 r=uv-.5;if(s>a)r.y*=a/s;else r.x*=s/a;return r*(1.-uZoom*.12)+.5;}
+    vec3 pick(float i,vec2 uv){return i<.5?texture2D(t0,cover(uv,uAsp.x)).rgb:(i<1.5?texture2D(t1,cover(uv,uAsp.y)).rgb:texture2D(t2,cover(uv,uAsp.z)).rgb);}
+    void main(){
+      float seg=floor(min(uP,1.999));float tr=smoothstep(.0,1.,clamp(uP-seg,0.,1.));float amt=sin(tr*3.14159);
+      vec2 uv=vUv;vec2 m=uM;float md=distance(uv*vec2(uRes.x/uRes.y,1.),m*vec2(uRes.x/uRes.y,1.));
+      uv+=normalize(uv-m+.0001)*exp(-md*14.)*.03*sin(md*60.-uT*4.);
+      float cols=90.+h(seg)*80.;float c=floor(uv.x*cols);float r=h(c+seg*13.);
+      float steps=6.+r*30.;
+      vec2 su=uv;su.y+=amt*r*r*.55;su.y=mix(su.y,floor(su.y*steps)/steps,amt*.7);
+      float sel=step(r,tr);
+      float ab=amt*.012+.0015;vec2 o=vec2(ab,0.);
+      vec3 a=vec3(pick(seg,su+o).r,pick(seg,su).g,pick(seg,su-o).b);
+      vec3 b=vec3(pick(seg+1.,su+o).r,pick(seg+1.,su).g,pick(seg+1.,su-o).b);
+      vec3 col=mix(a,b,sel);
+      col+=vec3(.78,1.,.24)*amt*step(.985,fract(uv.x*cols))*.5;
+      float v=smoothstep(1.2,.3,length(vUv-.5)*1.4);col*=v;
+      gl_FragColor=vec4(col,1.);}` });
+  const scene = new THREE.Scene(); scene.add(new THREE.Mesh(quad, mat));
+  const m = { x: .5, y: .5 };
+  addMode('pixel', scene, ortho, (t) => { m.x += (pointer.x / innerWidth - m.x) * .08; m.y += (1 - pointer.y / innerHeight - m.y) * .08; u.uM.value.set(m.x, m.y); u.uT.value = reduce ? 0 : t; });
+  const caps = $$('.pix-cap'), idx = $('#pix-idx');
+  track('#s-pixel', (p) => {
+    const x = p * 2, i = Math.min(1, Math.floor(x)), P = i + smooth(seg(x - i, .35, .85));
+    u.uP.value = P; u.uZoom.value = p;
+    caps.forEach((el, k) => { const d = Math.abs(P - k), o = clamp01(1 - d * 2.2); el.style.opacity = o; el.style.transform = `translateY(${(P - k) * -60}px)`; });
+    idx.textContent = `${Math.round(P) + 1} / 3`;
+  }, (on) => showMode('pixel', 'pixel', on));
+}
+
+/* mode: warp starfield */
+{
+  const S = CONFIG.stars, base = new Float32Array(S * 6), tail = new Float32Array(S * 2), rr = new Float32Array(S * 2);
+  for (let i = 0; i < S; i++) {
+    const a = rand(0, Math.PI * 2), r = 1.2 + Math.pow(Math.random(), 1.5) * 28, z = rand(0, 120), k = Math.random();
+    base.set([Math.cos(a) * r, Math.sin(a) * r, z, Math.cos(a) * r, Math.sin(a) * r, z], i * 6); tail.set([0, 1], i * 2); rr.set([k, k], i * 2);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(base, 3));
+  geo.setAttribute('aTail', new THREE.BufferAttribute(tail, 1));
+  geo.setAttribute('aRnd', new THREE.BufferAttribute(rr, 1));
+  const u = { uZ: { value: 0 }, uLen: { value: .5 }, uFade: { value: 1 } };
+  const mat = new THREE.ShaderMaterial({ uniforms: u, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+    vertexShader: `uniform float uZ,uLen;attribute float aTail,aRnd;varying float vT,vR,vD;
+      void main(){float z=mod(position.z+uZ,120.)-120.;z-=aTail*uLen*(.4+aRnd);vT=aTail;vR=aRnd;vD=clamp((z+120.)/40.,0.,1.);
+        gl_Position=projectionMatrix*modelViewMatrix*vec4(position.xy,z,1.);}`,
+    fragmentShader: `uniform float uFade;varying float vT,vR,vD;
+      void main(){vec3 c=vR<.45?vec3(.35,.42,1.):(vR<.7?vec3(.62,.45,1.):(vR<.9?vec3(1.,.3,.85):vec3(.78,1.,.24)));
+        c=mix(vec3(1.),c,.6+vT*.4);gl_FragColor=vec4(c,(1.-vT*.85)*vD*uFade);}` });
+  const lines = new THREE.LineSegments(geo, mat);
+  const scene = new THREE.Scene(); scene.add(lines);
+  const cam = perspective(75, 0);
+  let prog = 0, speed = 0;
+  const speedEl = $('#warp-speed');
+  addMode('warp', scene, cam, (t, dt) => {
+    const target = 6 + Math.min(Math.abs(velocity()), 80) * 1.2 + prog * 90;
+    speed += (target - speed) * .08;
+    u.uZ.value += dt * speed * (reduce ? .1 : 1);
+    u.uLen.value = .3 + speed * .06;
+    lines.rotation.z += dt * (.05 + prog * .6) * (reduce ? 0 : 1);
+    cam.rotation.x += (pointer.ny * .08 - cam.rotation.x) * .05; cam.rotation.y += (-pointer.nx * .08 - cam.rotation.y) * .05;
+    speedEl.textContent = (speed / 100).toFixed(2) + 'c';
+  });
+  const words = $$('.warp-word');
+  track('#s-warp', (p) => {
+    prog = p; u.uFade.value = 1 - seg(p, .92, 1) * .6;
+    words.forEach((el, i) => { const k = seg(p, i * .22, i * .22 + .3), s = .15 + Math.pow(k, 2.4) * 7; el.style.opacity = k <= 0 || k >= 1 ? 0 : k < .5 ? smooth(k / .5) : 1 - smooth((k - .5) / .5); el.style.transform = `scale(${s})`; el.style.filter = `blur(${Math.max(0, k - .6) * 30}px)`; });
+  }, (on) => showMode('warp', 'warp', on));
+}
+
+/* render loop shared by every GL mode */
+gsap.ticker.add((time, deltaMs) => {
+  const active = [...modes.values()].filter((m) => m.on.size);
+  glCanvas.style.visibility = active.length ? 'visible' : 'hidden';
+  if (!active.length) return;
+  const dt = Math.min(deltaMs / 1000, .05);
+  renderer.clear();
+  for (const m of active) { m.update(time, dt); renderer.render(m.scene, m.camera); }
+});
+addEventListener('resize', () => {
+  renderer.setSize(innerWidth, innerHeight); resUniform.value.set(innerWidth, innerHeight);
+  modes.forEach((m) => { if (m.camera.isPerspectiveCamera) { m.camera.aspect = innerWidth / innerHeight; m.camera.updateProjectionMatrix(); } });
+});
+
+/* ───────── 01 hero: letters fly in, then scatter ───────── */
+{
+  const chars = $$('#title .ch'), inner = $$('#title .ci'), iii = $('#iii');
+  const vec = chars.map(() => ({ x: rand(-160, 160), y: rand(-320, 320), r: rand(-60, 60), z: rand(-200, 400) }));
+  if (!reduce) gsap.from(inner, { yPercent: 120, rotate: 12, opacity: 0, stagger: .05, duration: 1.2, ease: 'expo.out', delay: .2 });
+  track('#s-hero', (p) => {
+    const k = smooth(seg(p, .08, .9));
+    chars.forEach((c, i) => { const v = vec[i]; c.style.transform = `translate3d(${v.x * k}px, ${v.y * k}px, ${v.z * k}px) rotate(${v.r * k}deg)`; c.style.opacity = 1 - k; });
+    iii.style.transform = `translate(${p * 30}vw, ${p * -20}vh) scale(${1 + p * 3}) rotate(${-8 + p * 40}deg)`;
+    iii.style.opacity = 1 - seg(p, .35, .8);
+  });
+}
+
+/* ───────── 02 velocity marquee ───────── */
+{
+  const trackEl = $('#marquee-track'); let mx = 0, skew = 0, on = false;
+  ScrollTrigger.create({ trigger: '#marquee', start: 'top bottom', end: 'bottom top', onToggle: (s) => { on = s.isActive; } });
+  gsap.ticker.add(() => {
+    if (!on) return;
+    const v = velocity();
+    mx -= (reduce ? 0 : 1.2) + Math.abs(v) * .6;
+    const half = trackEl.scrollWidth / 2; if (-mx > half) mx += half;
+    skew += (Math.max(-20, Math.min(20, v * .8)) - skew) * .1;
+    trackEl.style.transform = `translateX(${mx}px) skewX(${-skew}deg)`;
+  });
+}
+
+/* ───────── 03 morph ───────── */
+{
+  const nameEl = $('#morph-name'), capEl = $('#morph-cap'), dots = $('#morph-dots');
+  dots.innerHTML = SHAPES.map(() => '<li></li>').join('');
+  const dotEls = [...dots.children];
+  let shown = -1;
+  track('#s-morph', (p) => {
+    const x = p * (SHAPES.length - 1), i = Math.min(SHAPES.length - 2, Math.floor(x)), m = i + smooth(seg(x - i, .4, .9));
+    particle.u.uM.value = m; particle.u.uEnd.value = 0; particle.u.uBurst.value = 0; particle.u.uAlpha.value = 1;
+    particle.camera.position.z = 6;
+    setParticleColors(m);
+    const r = Math.round(m);
+    if (r !== shown) { shown = r; nameEl.textContent = SHAPES[r].name; capEl.textContent = SHAPES[r].cap; dotEls.forEach((d, k) => d.classList.toggle('on', k === r)); }
+  }, (on) => showMode('particles', 'morph', on));
+
+  const scr = $('#scramble');
+  const PHRASES = ['DECRYPTING THE NIGHT', `입자 ${CONFIG.particles.toLocaleString('ko-KR')}개`, 'SHAPE SHIFTING', '모양은 바뀌어도 빛은 그대로'];
+  let pi = 0;
+  const scramble = (to) => new Promise((res) => {
+    const from = scr.textContent, len = Math.max(from.length, to.length), q = [];
+    for (let i = 0; i < len; i++) q.push({ from: from[i] || '', to: to[i] || '', start: Math.floor(Math.random() * 25), end: Math.floor(Math.random() * 25) + 25 });
+    let f = 0;
+    const step = () => {
+      let out = '', done = 0;
+      for (const c of q) { if (f >= c.end) { done++; out += c.to; } else if (f >= c.start) out += CONFIG.glyphs[Math.floor(Math.random() * CONFIG.glyphs.length)]; else out += c.from; }
+      scr.textContent = out;
+      if (done === q.length) res(); else { f++; requestAnimationFrame(step); }
+    };
+    step();
+  });
+  const loop = async () => { await scramble(PHRASES[pi]); pi = (pi + 1) % PHRASES.length; setTimeout(loop, 1800); };
+  if (reduce) scr.textContent = PHRASES[0]; else loop();
+}
+
+/* ───────── video helpers: scrub wrapper, play only when visible ───────── */
+$$('video').forEach((v) => {
+  if (reduce) { v.removeAttribute('autoplay'); v.pause(); }
+  let ready = false, visible = false;
+  const sync = () => { if (reduce || !ready) return; if (visible) v.play().catch((e) => console.warn('video play blocked:', e.name)); else v.pause(); };
+  v.addEventListener('canplay', () => { ready = true; sync(); });
+  new IntersectionObserver(([e]) => { visible = e.isIntersecting; sync(); }).observe(v);
+});
+
+/* ───────── 04 fog video + word reveal ───────── */
+{
+  const wrap = $('#fog-v'), head = $$('#fog-head .ci'), text = $('#fog-words');
+  const HL = ['윤곽을', '길다.'];
+  text.innerHTML = text.textContent.split(' ').map((w) => `<span class="w${HL.includes(w) ? ' hl' : ''}">${w}</span>`).join(' ');
+  const words = $$('#fog-words .w');
+  track('#s-fog', (p) => {
+    const a = seg(p, 0, .3), out = seg(p, .9, 1);
+    wrap.style.opacity = (.25 + a * .75) * (1 - out * .7);
+    wrap.style.transform = `scale(${1.35 - a * .3 + p * .08})`;
+    head.forEach((c, i) => { const k = smooth(seg(p, .05 + i * .03, .25 + i * .03)); c.style.opacity = k; c.style.filter = `blur(${(1 - k) * 18}px)`; c.style.transform = `translateY(${(1 - k) * 80}px)`; });
+    const n = Math.round(seg(p, .35, .85) * words.length);
+    words.forEach((w, i) => w.classList.toggle('on', i < n));
+  });
+}
+
+/* ───────── 05 kinetic typography ───────── */
+{
+  const A = $$('#kin-a .ch'), B = $$('#kin-b .ch'), C = $$('#kin-c .ch'), bg = $('#kin-bg');
+  const tl = gsap.timeline({ paused: true });
+  tl.fromTo(A, { yPercent: 130, rotateX: -100, opacity: 0 }, { yPercent: 0, rotateX: 0, opacity: 1, stagger: .1, duration: .6, ease: 'power3.out' })
+    .to(A, { scale: 4, opacity: 0, filter: 'blur(24px)', stagger: { each: .05, from: 'center' }, duration: .6, ease: 'power2.in' }, '+=.35')
+    .fromTo(B, { x: () => rand(-700, 700), y: () => rand(-450, 450), z: () => rand(-900, 300), rotate: () => rand(-180, 180), opacity: 0 },
+      { x: 0, y: 0, z: 0, rotate: 0, opacity: 1, stagger: .05, duration: .8, ease: 'power3.out' }, '-=.25')
+    .to(B, { rotateY: 90, opacity: 0, stagger: .05, duration: .5, ease: 'power2.in' }, '+=.35')
+    .fromTo(C, { yPercent: -220, opacity: 0, scaleY: 1.7 }, { yPercent: 0, opacity: 1, scaleY: 1, stagger: .09, duration: .8, ease: 'bounce.out' })
+    .to(C, { color: CONFIG.palette.lime, stagger: .08, duration: .3 }, '+=.1')
+    .to({}, { duration: .5 });
+  tl.fromTo(bg, { xPercent: 25 }, { xPercent: -45, duration: tl.duration(), ease: 'none' }, 0);
+  track('#s-kin', (p) => tl.progress(p));
+}
+
+/* ───────── 06 zoom tunnel ───────── */
+{
+  const layers = $$('.layer'), title = $('#tunnel-title');
+  track('#s-tunnel', (p) => {
+    layers.forEach((el, i) => {
+      const k = p * (layers.length + .5) - i * .9, z = -1600 + k * 1300;
+      el.style.transform = `translate3d(${(i % 2 ? 1 : -1) * 12 * (1 - k)}vw, 0, ${z}px) rotate(${(i % 2 ? 1 : -1) * 8 * (1 - k)}deg)`;
+      el.style.opacity = z > 650 ? 0 : clamp01(1 - Math.abs(k - .8) * .9);
+      el.style.zIndex = String(Math.round(z + 2000));
+    });
+    title.style.transform = `scale(${.6 + p * 1.6})`;
+  });
+}
+
+/* ───────── 07 portal: circle reveal from the cursor ───────── */
+{
+  const top = $('#portal-top'), ring = $('#portal-ring'), wrap = $('#portal-v'), head = $$('#portal-head .ci');
+  const pc = { x: innerWidth / 2, y: innerHeight / 2 }; let radius = 0, on = false;
+  track('#s-portal', (p) => {
+    const diag = Math.hypot(innerWidth, innerHeight);
+    radius = 70 * smooth(seg(p, 0, .12)) + diag * Math.pow(smooth(seg(p, .15, .75)), 1.6);
+    wrap.style.transform = `scale(${1.35 - seg(p, .1, .9) * .35})`;
+    wrap.style.opacity = .4 + seg(p, .1, .6) * .6;
+    head.forEach((c, i) => { const k = smooth(seg(p, .5 + i * .03, .7 + i * .03)); c.style.opacity = k; c.style.transform = `scale(${2 - k}) translateY(${(1 - k) * 40}px)`; });
+  }, (v) => { on = v; });
+  gsap.ticker.add(() => {
+    if (!on) return;
+    pc.x += (pointer.x - pc.x) * .12; pc.y += (pointer.y - pc.y) * .12;
+    top.style.clipPath = `circle(${radius}px at ${pc.x}px ${pc.y}px)`;
+    const d = radius * 2;
+    ring.style.width = ring.style.height = d + 'px';
+    ring.style.transform = `translate(${pc.x - radius}px, ${pc.y - radius}px)`;
+    ring.style.opacity = radius > Math.hypot(innerWidth, innerHeight) * .9 ? 0 : 1;
+  });
+}
+
+/* ───────── 08 horizontal gallery ───────── */
+{
+  const rail = $('#rail'), cards = $$('.card'); let on = false, skew = 0;
+  track('#s-gallery', (p) => {
+    rail.style.setProperty('--x', `${-(rail.scrollWidth - innerWidth) * p}px`);
+    cards.forEach((c) => { const r = c.getBoundingClientRect(), off = (r.left + r.width / 2 - innerWidth / 2) / innerWidth; c.querySelector('img').style.transform = `translateX(${off * -8}%)`; });
+  }, (v) => { on = v; });
+  gsap.ticker.add(() => {
+    if (!on) return;
+    skew += (Math.max(-12, Math.min(12, velocity() * .5)) - skew) * .1;
+    rail.style.transform = `translateX(var(--x, 0px)) skewX(${-skew}deg)`;
+  });
+  cards.forEach((card) => {
+    card.addEventListener('pointermove', (e) => {
+      const r = card.getBoundingClientRect(), px = (e.clientX - r.left) / r.width, py = (e.clientY - r.top) / r.height;
+      card.style.transform = `perspective(900px) rotateY(${(px - .5) * 18}deg) rotateX(${(.5 - py) * 18}deg) scale(1.03)`;
+      card.style.setProperty('--gx', px * 100 + '%'); card.style.setProperty('--gy', py * 100 + '%');
+    });
+    card.addEventListener('pointerleave', () => { card.style.transform = ''; });
+  });
+}
+
+/* ───────── 10 split screen ───────── */
+{
+  const L = $('#half-l'), R = $('#half-r'), seam = $('#seam'), wrap = $('#split-v'), head = $$('#split-head .ci');
+  track('#s-split', (p) => {
+    const s = smooth(seg(p, .1, .5));
+    seam.style.transform = `scaleY(${seg(p, 0, .1)})`; seam.style.opacity = 1 - s;
+    L.style.transform = `translateX(${-s * 55}vw) rotate(${-s * 5}deg)`;
+    R.style.transform = `translateX(${s * 55}vw) rotate(${s * 5}deg)`;
+    wrap.style.transform = `scale(${1.3 - s * .3 + seg(p, .5, 1) * .1})`;
+    wrap.style.opacity = (.3 + s * .7) * (1 - seg(p, .92, 1) * .6);
+    head.forEach((c, i) => { const k = smooth(seg(p, .45 + i * .035, .65 + i * .035)); c.style.opacity = k; c.style.transform = `translateY(${(1 - k) * 110}%) rotate(${(1 - k) * 12}deg)`; });
+  });
+}
+
+/* ───────── 12 fanned cards ───────── */
+{
+  const cards = $$('.fcard'), n = cards.length, mid = (n - 1) / 2;
+  track('#s-fan', (p) => {
+    const a = smooth(seg(p, .05, .4)), b = smooth(seg(p, .45, .75)), c = smooth(seg(p, .78, .98));
+    const spread = Math.min(innerWidth * .11, 170);
+    cards.forEach((el, i) => {
+      const k = i - mid, rest = (i % 2 ? 2.5 : -2.5) * (1 - a);
+      const rot = rest + k * 13 * a * (1 - b) + k * 3 * b;
+      const x = k * spread * b, y = Math.abs(k) * 22 * b - (k === 0 ? 40 * c : 0);
+      const sc = 1 + (k === 0 ? .3 * c : -.08 * c);
+      el.style.transform = `translate(${x}px, ${y}px) rotate(${rot}deg) scale(${sc})`;
+      el.style.opacity = k === 0 ? 1 : 1 - c * .6;
+      el.style.zIndex = k === 0 && c > 0 ? 20 : i;
+    });
+  });
+}
+
+/* ───────── 13 counters ───────── */
+{
+  const grid = $('#count-grid');
+  const stats = [
+    { to: CONFIG.particles, label: '개의 입자' },
+    { to: Math.round(document.documentElement.scrollHeight / innerHeight), label: '화면 길이의 스크롤' },
+    { to: sceneEls.length, label: '개의 장면' },
+    { to: modes.size, label: '개의 WebGL 모드, 렌더러는 하나' },
+  ];
+  grid.innerHTML = stats.map((s) => `<div class="stat"><b>0</b><span>${s.label}</span></div>`).join('');
+  const nums = $$('#count-grid b'), arc = $('#count-arc'), C = 2 * Math.PI * 92;
+  arc.style.strokeDasharray = `${C}`;
+  track('#s-count', (p) => {
+    nums.forEach((b, i) => { const k = smooth(seg(p, .05 + i * .16, .35 + i * .16)); b.textContent = Math.round(stats[i].to * k).toLocaleString('ko-KR'); b.parentElement.style.opacity = .15 + k * .85; });
+    arc.style.strokeDashoffset = `${C * (1 - seg(p, .05, .9))}`;
+  });
+}
+
+/* ───────── 14 finale: explode to dust, reform ───────── */
+{
+  const copy = $('#fin-copy');
+  track('#s-finale', (p) => {
+    const u = particle.u;
+    u.uM.value = 0; setParticleColors(0);
+    u.uAlpha.value = smooth(seg(p, 0, .08));
+    u.uBurst.value = smooth(seg(p, .12, .4)) * (1 - smooth(seg(p, .42, .78)));
+    u.uEnd.value = smooth(seg(p, .42, .78));
+    particle.camera.position.z = 6 + u.uBurst.value * .8 - u.uEnd.value * .4;
+    const c = seg(p, .82, .92); copy.style.opacity = c; copy.style.transform = `translateY(${(1 - c) * 40}px)`;
+    copy.style.pointerEvents = c > .5 ? 'auto' : 'none';
+  }, (on) => showMode('particles', 'finale', on));
+
+  const magnet = $('#magnet'), label = magnet.querySelector('span');
+  magnet.addEventListener('pointermove', (e) => {
+    const r = magnet.getBoundingClientRect(), dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2);
+    gsap.to(magnet, { x: dx * .45, y: dy * .45, duration: .4, ease: 'power3.out' });
+    gsap.to(label, { x: dx * .2, y: dy * .2, duration: .4, ease: 'power3.out' });
+  });
+  magnet.addEventListener('pointerleave', () => gsap.to([magnet, label], { x: 0, y: 0, duration: .8, ease: 'elastic.out(1, .4)' }));
+  magnet.addEventListener('click', () => (lenis ? lenis.scrollTo(0, { duration: 3 }) : scrollTo({ top: 0, behavior: 'auto' })));
+}
+
+buildParticles().catch((e) => console.error('particle build failed:', e));
+</script>
+</body>
+</html>
