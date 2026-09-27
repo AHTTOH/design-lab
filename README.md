@@ -66,7 +66,9 @@ git push
 claude-rules 백업은 이렇게 갱신한다.
 
 ```
-cd C:\Users\sh\claude-rules
-git subtree pull --prefix design-lab https://github.com/AHTTOH/design-lab.git main -m "chore: sync design-lab"
-git push
+cd /c/Users/sh/claude-rules
+rm -rf design-lab/* && git -C ../design-lab archive main | tar -x -C design-lab
+git add -A design-lab && git commit -m "chore: sync design-lab backup" && git push
 ```
+
+두 레포 히스토리가 이어져 있지 않아서 `git subtree pull` 은 거부된다. 그래서 커밋된 main 을 통째로 풀어 덮어쓴다.
