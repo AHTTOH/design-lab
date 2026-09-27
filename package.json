@@ -1,0 +1,12 @@
+{
+  "name": "design-lab",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "node tools/check-pages.mjs",
+    "build:ad3": "node after-dark-3/build.mjs"
+  },
+  "devDependencies": {
+    "playwright": "^1.55.0"
+  }
+}

@@ -1,0 +1,17 @@
+# design-lab 작업 지침
+
+> 최초 기록: 2026-09-28
+
+이 레포는 신영환의 웹 인터랙션 연습장이다. 목록 페이지와 STARDUST, AFTER DARK I·II·III 이 있다.
+main 에 푸시하면 https://ahttoh.github.io/design-lab/ 에 바로 배포된다.
+
+**작업 전에 `docs/HANDOFF-2026-09-28.md` 를 끝까지 읽는다.** 신영환의 취향, 레퍼런스, 작업 순서, 기법별 수치, 함정이 전부 거기 있다. 이 문서를 건너뛰면 지난번 퀄리티가 안 나온다.
+
+핵심만 옮기면 다음과 같다.
+
+- 재료(이미지·영상)를 먼저 생성하고 코드는 그다음이다. 이미지는 ChatGPT OAuth 프록시로, 영상은 `tools/flow-video.mjs`(Google Flow)로 만든다. 영상은 마음껏 써도 된다(2026-09-28 신영환).
+- 장면 하나에 최소 350vh 를 준다. 빨리 넘어가는 걸 싫어한다. 길게 내려야 끝나는 페이지를 좋아한다.
+- 검정 바탕에 코발트, 바이올렛, 마젠타, 라임 네온. 크림·아이보리·회백색 금지.
+- `after-dark-3/index.html` 은 빌드 결과다. `index.src.html` 을 고치고 `node build.mjs` 한다.
+- 새 작업물은 최상위에 `<이름>/index.html` 폴더로 추가하고 루트 `index.html` 목록과 `README.md` 구성표에 한 줄씩 넣는다. 그 밖의 구조 변경은 먼저 묻는다.
+- 끝나면 Playwright 로 1440·375·reduced-motion 을 검사하고, 푸시한 뒤 claude-rules 백업을 갱신한다(README "배포와 백업").

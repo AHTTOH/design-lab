@@ -25,6 +25,9 @@ assets/thumb/                 목록 페이지 썸네일
 tools/gen-images-1.mjs        I·II 이미지 생성 (chrome, glass, orb, bloom)
 tools/gen-images-2.mjs        III 이미지와 포스터 스틸 생성 (eclipse, jelly, mask, v1~v3)
 tools/flow-video.mjs          Flow 영상 생성·다운로드 드라이버
+tools/check-pages.mjs         전 페이지 오류·넘침 검사 (npm run check)
+docs/HANDOFF-2026-09-28.md    인수인계서. 취향, 레퍼런스, 작업 순서, 기법 수치, 함정
+CLAUDE.md                     이 폴더를 열면 Claude 가 자동으로 읽는 요약
 ```
 
 ## AFTER DARK III 고치는 법
