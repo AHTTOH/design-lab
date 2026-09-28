@@ -1,0 +1,1062 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AFTER DARK V</title>
+<meta name="description" content="레이마칭 메타볼, 속도에 녹는 글자, 부서지는 크롬 조각, 노이즈 변위 전환, CSS 3D 비행, 물리 글자, 선 드로잉.">
+<meta property="og:title" content="AFTER DARK V">
+<meta property="og:image" content="https://ahttoh.github.io/design-lab/assets/thumb/after-dark-5.webp">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<style>
+  @view-transition { navigation: auto; }
+  :root {
+    --bg: #000; --ink: #f3f3ff; --soft: #8a8fa8; --line: #1a1b28;
+    --cobalt: #3d4dff; --violet: #8b5cff; --magenta: #ff3fd0; --lime: #c6ff3d;
+    --display: clamp(3.4rem, 1rem + 12vw, 15rem);
+    --headline: clamp(2.6rem, 1rem + 6vw, 8rem);
+    --gutter: clamp(16px, 5vw, 80px);
+    --ease: cubic-bezier(.16, 1, .3, 1);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--ink); font-family: 'Pretendard Variable', system-ui, sans-serif; overflow-x: clip; cursor: none; }
+  a, button { cursor: none; }
+  ::selection { background: var(--cobalt); }
+  ::view-transition-group(ad5-hero) { animation-duration: .8s; animation-timing-function: var(--ease); }
+
+  /* global overlays */
+  #gl { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; display: block; }
+  #dust { position: fixed; inset: 0; z-index: 60; pointer-events: none; }
+  .grain { position: fixed; inset: -50%; z-index: 55; pointer-events: none; opacity: .08; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); animation: grain .5s steps(4) infinite; }
+  @keyframes grain { 0% { transform: translate(0,0); } 25% { transform: translate(-3%,2%); } 50% { transform: translate(2%,-3%); } 75% { transform: translate(-2%,-1%); } 100% { transform: translate(0,0); } }
+  .cursor { position: fixed; left: 0; top: 0; width: 16px; height: 16px; border-radius: 50%; background: #fff; mix-blend-mode: difference; pointer-events: none; z-index: 70; transform: translate(-50%, -50%); transition: width .25s, height .25s; }
+  .cursor.big { width: 84px; height: 84px; }
+  .progress { position: fixed; left: 0; top: 0; height: 3px; width: 100%; z-index: 65; transform-origin: left; transform: scaleX(0); background: linear-gradient(90deg, var(--cobalt), var(--violet), var(--magenta), var(--lime)); }
+  .hud { position: fixed; left: var(--gutter); bottom: 28px; z-index: 50; display: flex; align-items: center; gap: 14px; font-size: 12px; letter-spacing: .28em; color: var(--soft); mix-blend-mode: difference; pointer-events: none; }
+  .hud b { color: var(--ink); font-weight: 700; font-variant-numeric: tabular-nums; }
+  .hud i { display: block; width: 44px; height: 1px; background: currentColor; }
+  .defs { position: absolute; width: 0; height: 0; overflow: hidden; }
+
+  main { position: relative; z-index: 1; }
+  .scene { position: relative; height: var(--len); }
+  .pin { position: sticky; top: 0; height: 100vh; overflow: hidden; }
+  .ln { display: block; }
+  .ch { display: inline-block; will-change: transform; }
+  .ci { display: inline-block; }
+  .scene-title { position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-50%); margin: 0; text-align: center; font-size: var(--display); font-weight: 900; letter-spacing: -.065em; line-height: .85; color: transparent; -webkit-text-stroke: 2px var(--ink); pointer-events: none; white-space: nowrap; will-change: opacity, transform; }
+
+  /* 01 raymarch hero */
+  .hero .pin { display: grid; place-items: center; text-align: center; view-transition-name: ad5-hero; }
+  .kicker { position: absolute; top: 9vh; left: 0; right: 0; font-size: 13px; letter-spacing: .34em; color: var(--soft); margin: 0; }
+  .title-wrap { position: relative; pointer-events: none; }
+  .title { font-size: var(--display); font-weight: 900; line-height: .82; letter-spacing: -.065em; margin: 0; text-shadow: 0 8px 60px rgba(0,0,0,.55); }
+  .num5 { position: absolute; right: -.32em; top: -.46em; font-size: calc(var(--display) * .62); font-weight: 900; font-style: italic; letter-spacing: -.02em; color: var(--magenta); text-shadow: 0 0 44px rgba(255, 63, 208, .55); will-change: transform, opacity; }
+  .scroll-cue { position: absolute; bottom: 4vh; left: 50%; transform: translateX(-50%); font-size: 12px; letter-spacing: .25em; color: var(--soft); }
+  .scroll-cue::after { content: ''; display: block; width: 1px; height: 48px; margin: 10px auto 0; background: linear-gradient(var(--ink), transparent); animation: drip 1.8s infinite; transform-origin: top; }
+  @keyframes drip { 0% { transform: scaleY(0); } 60% { transform: scaleY(1); } 100% { transform: scaleY(1); opacity: 0; } }
+  .tilt-btn { position: absolute; right: var(--gutter); bottom: 4vh; padding: 12px 18px; border: 1px solid var(--violet); border-radius: 999px; background: rgba(0,0,0,.55); color: var(--ink); font: 700 14px 'Pretendard Variable', sans-serif; letter-spacing: .02em; }
+  .tilt-btn:focus-visible { outline: 3px solid var(--lime); outline-offset: 4px; }
+
+  /* 02 liquid type */
+  .liquid .pin { display: flex; flex-direction: column; justify-content: center; gap: 2vh; }
+  .liq-row { position: relative; left: 50%; margin: 0; width: max-content; white-space: nowrap; font-size: clamp(4.2rem, 1rem + 15vw, 17rem); font-weight: 900; letter-spacing: -.06em; line-height: .86; transform-origin: 50% 50%; will-change: transform, filter; }
+  /* variable-font contours overlap inside glyphs; a black fill painted over the stroke hides them */
+  .liq-row.r1 { color: var(--bg); -webkit-text-stroke: 3px var(--ink); paint-order: stroke fill; }
+  .liq-row.r2 { color: var(--cobalt); text-shadow: 0 0 60px rgba(61, 77, 255, .5); }
+  .liq-row.r3 { color: var(--magenta); text-shadow: 0 0 60px rgba(255, 63, 208, .45); }
+
+  /* 03 sculpture */
+  .sc-head { position: absolute; left: var(--gutter); margin: 0; font-size: var(--headline); font-weight: 900; letter-spacing: -.05em; line-height: .9; white-space: nowrap; pointer-events: none; mix-blend-mode: difference; will-change: opacity, transform; }
+  .sc-head.a { top: 10vh; }
+  .sc-head.b { bottom: 12vh; right: var(--gutter); left: auto; color: var(--lime); mix-blend-mode: normal; text-shadow: 0 0 40px rgba(198, 255, 61, .4); }
+
+  /* 04 displace gallery */
+  .gal-cap { position: absolute; left: var(--gutter); bottom: 12vh; pointer-events: none; text-shadow: 0 4px 30px rgba(0,0,0,.8); }
+  .gal-count { display: flex; align-items: baseline; gap: 10px; font-weight: 900; letter-spacing: -.05em; font-variant-numeric: tabular-nums; }
+  .gal-count b { font-size: clamp(3rem, 1rem + 5vw, 7rem); line-height: .85; }
+  .gal-count span { font-size: 13px; font-weight: 600; letter-spacing: .3em; color: var(--soft); }
+  .gal-name { margin: 14px 0 0; font-size: clamp(1.2rem, .8rem + 1.2vw, 2rem); font-weight: 800; letter-spacing: -.02em; will-change: opacity, transform; }
+
+  /* 05 CSS 3D flight */
+  .flight .pin { background: var(--bg); }
+  .stage { position: absolute; inset: 0; perspective: var(--persp); perspective-origin: 50% 50%; overflow: hidden; }
+  .world { position: absolute; left: 50%; top: 50%; width: 0; height: 0; transform-style: preserve-3d; will-change: transform; }
+  .panel { position: absolute; left: 0; top: 0; width: var(--pw); aspect-ratio: 16 / 9; margin: 0; backface-visibility: hidden; will-change: transform, opacity; }
+  .panel video { display: block; width: 100%; height: 100%; object-fit: cover; background: #05050b; border-radius: 4px; box-shadow: 0 0 80px rgba(61, 77, 255, .25); }
+  .panel figcaption { position: absolute; left: 0; bottom: -2.2em; font-size: 15px; font-weight: 700; letter-spacing: .02em; color: var(--ink); }
+  .star { position: absolute; left: 0; top: 0; width: 3px; height: 3px; margin: -1.5px 0 0 -1.5px; border-radius: 50%; background: var(--c); box-shadow: 0 0 8px var(--c); will-change: transform, opacity; }
+  .flight.static .stage { perspective: none; display: grid; place-items: center; }
+  .flight.static .world { position: static; width: min(92vw, 1100px); height: auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 3vh 2vw; transform: none; }
+  .flight.static .panel { position: relative; width: auto; transform: none; margin-bottom: 2.2em; }
+  .flight.static .star { display: none; }
+
+  /* 06 physics */
+  .phys .pin { touch-action: pan-y; }
+  .pl { position: absolute; left: 0; top: 0; margin: 0; font-size: clamp(4rem, 1rem + 14vw, 16rem); font-weight: 900; line-height: 1; color: var(--c); text-shadow: 0 0 40px color-mix(in srgb, var(--c) 45%, transparent); user-select: none; will-change: transform; }
+  .phys.static .pin { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: center; align-content: flex-end; padding-bottom: 8vh; gap: 0 .1em; }
+  .phys.static .pl { position: static; }
+
+  /* 07 line drawing */
+  .line .pin { display: grid; place-items: center; }
+  .orbit { width: min(100vw, 100vh); height: min(100vw, 100vh); overflow: visible; }
+  .orbit path { fill: none; stroke-linecap: round; stroke-dasharray: 1; stroke-dashoffset: 1; }
+  .orbit .vmark { filter: drop-shadow(0 0 14px rgba(198, 255, 61, .7)); }
+  .orbit circle { stroke: none; }
+
+  /* 08 finale */
+  .fin .pin { display: grid; place-items: center; text-align: center; }
+  .fin-title { position: relative; margin: 0; font-size: min(var(--display), 12.5vw); font-weight: 900; line-height: .82; letter-spacing: -.065em; text-shadow: 0 10px 60px rgba(0,0,0,.6); }
+  .fin-title .ln:last-child { color: var(--magenta); text-shadow: 0 0 50px rgba(255, 63, 208, .5); }
+  .fin-copy { position: absolute; left: 0; right: 0; bottom: 9vh; display: grid; place-items: center; opacity: 0; }
+  .magnet { display: grid; place-items: center; width: 150px; height: 150px; border-radius: 50%; background: var(--cobalt); color: #fff; font: 800 1.05rem 'Pretendard Variable', sans-serif; text-decoration: none; box-shadow: 0 0 80px rgba(61, 77, 255, .7); will-change: transform; }
+  .magnet span { pointer-events: none; will-change: transform; }
+  .magnet:focus-visible { outline: 3px solid var(--lime); outline-offset: 6px; }
+
+  @media (max-width: 760px) {
+    .liquid .pin { gap: 4vh; }
+    .liq-row { font-size: 36vw; }
+    .sc-head.a { top: 12vh; }
+    .gal-cap { bottom: 14vh; }
+    .panel figcaption { font-size: 13px; }
+  }
+  @media (pointer: coarse) {
+    html, body, a, button { cursor: auto; }
+    .cursor { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .grain, .scroll-cue::after { animation: none; }
+    ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; }
+  }
+</style>
+</head>
+<body>
+<canvas id="gl" aria-hidden="true"></canvas>
+<canvas id="dust" aria-hidden="true"></canvas>
+<div class="grain" aria-hidden="true"></div>
+<div class="cursor" id="cursor" aria-hidden="true"></div>
+<div class="progress" id="progress" aria-hidden="true"></div>
+<div class="hud" aria-hidden="true"><b id="hud-i">01</b><i></i><span id="hud-n">RAYMARCH</span></div>
+<svg class="defs" aria-hidden="true" focusable="false">
+  <filter id="liquid" x="-10%" y="-40%" width="120%" height="180%" color-interpolation-filters="sRGB">
+    <feTurbulence id="liq-turb" type="fractalNoise" baseFrequency="0.006 0.02" numOctaves="2" seed="7" result="noise"/>
+    <feDisplacementMap id="liq-disp" in="SourceGraphic" in2="noise" scale="0" xChannelSelector="R" yChannelSelector="G"/>
+  </filter>
+</svg>
+
+<main>
+  <section class="scene hero" id="s-hero" data-scene="RAYMARCH" style="--len:450vh">
+    <div class="pin" id="hero-pin">
+      <p class="kicker">INTERACTION STUDY 2026</p>
+      <div class="title-wrap"><h1 class="title" id="title" data-split data-label="AFTER DARK V">AFTER|DARK</h1><div class="num5" id="num5" aria-hidden="true">V</div></div>
+      <div class="scroll-cue" aria-hidden="true">SCROLL</div>
+      <button class="tilt-btn" id="tilt-btn" type="button" hidden>기울기 켜기</button>
+    </div>
+  </section>
+
+  <section class="scene liquid" id="s-liquid" data-scene="LIQUID TYPE" style="--len:400vh">
+    <div class="pin" aria-label="LIQUID TYPE">
+      <p class="liq-row r1" aria-hidden="true">LIQUID LIQUID LIQUID LIQUID</p>
+      <p class="liq-row r2">녹아내리는 녹아내리는 녹아내리는</p>
+      <p class="liq-row r3" aria-hidden="true">TYPE TYPE TYPE TYPE TYPE TYPE</p>
+    </div>
+  </section>
+
+  <section class="scene sculpt" id="s-sculpt" data-scene="SCULPTURE" style="--len:900vh">
+    <div class="pin" id="sculpt-pin">
+      <h2 class="sc-head a" id="sc-a">SHATTER</h2>
+      <h2 class="sc-head b" id="sc-b">다시 모인다</h2>
+    </div>
+  </section>
+
+  <section class="scene gallery" id="s-gallery" data-scene="DISPLACE" style="--len:900vh">
+    <div class="pin" id="gallery-pin">
+      <h2 class="scene-title" id="gal-title">DISPLACE</h2>
+      <div class="gal-cap" aria-live="polite">
+        <div class="gal-count" aria-hidden="true"><b id="gal-idx">01</b><span id="gal-tot">/ 05</span></div>
+        <p class="gal-name" id="gal-name"></p>
+      </div>
+    </div>
+  </section>
+
+  <section class="scene flight" id="s-flight" data-scene="FLIGHT" style="--len:900vh">
+    <div class="pin">
+      <div class="stage" id="stage"><div class="world" id="world"></div></div>
+      <h2 class="scene-title" id="fl-title">FLIGHT</h2>
+    </div>
+  </section>
+
+  <section class="scene phys" id="s-phys" data-scene="PHYSICS" style="--len:450vh">
+    <div class="pin" id="phys-pin"></div>
+  </section>
+
+  <section class="scene line" id="s-line" data-scene="LINE" style="--len:450vh">
+    <div class="pin">
+      <svg class="orbit" id="orbit" viewBox="0 0 1000 1000" role="img" aria-label="궤도와 별자리가 그려지다가 V 로 모이는 선 그림"></svg>
+    </div>
+  </section>
+
+  <section class="scene fin" id="s-finale" data-scene="FINALE" style="--len:400vh">
+    <div class="pin" id="fin-pin">
+      <h2 class="fin-title" id="fin-title" data-split>AFTER DARK|V</h2>
+      <div class="fin-copy" id="fin-copy"><a class="magnet" id="magnet" href="../"><span>목록으로</span></a></div>
+    </div>
+  </section>
+</main>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/lenis@1.1.13/dist/lenis.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/matter-js@0.19.0/build/matter.min.js"></script>
+<script type="module">
+import * as THREE from 'three';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+/* ───────── config ───────── */
+const CONFIG = {
+  dprMax: 1.5,
+  lenisLerp: 0.08,
+  palette: { cobalt: '#3d4dff', violet: '#8b5cff', magenta: '#ff3fd0', lime: '#c6ff3d', white: '#f3f3ff' },
+  dustColors: ['#ffffff', '#9aa6ff', '#ff3fd0', '#c6ff3d'],
+  tilt: { rangeDeg: 30, ease: 0.08 },
+  raymarch: {
+    scale: 0.66, scaleMobile: 0.5, mobileBreak: 760,
+    spreadBase: 0.22, spreadMax: 1.45, split: [0.06, 0.42], merge: [0.6, 0.94],
+    blendMerged: 0.55, blendSplit: 0.26, orbitTurns: 0.75, orbitTilt: 0.6, heightBase: 0.45, heightTilt: 1.1,
+    distMerged: 5.2, distSplit: 6.6, timeSpin: 0.05, lightAutoMs: 2500,
+    title: [0.12, 0.55], v: [0.5, 0.9],
+  },
+  finaleRay: { spread: 0.18, spreadWave: 0.25, blend: 0.55, dist: 6.2, glow: 0.6, spin: 0.12 },
+  liquid: {
+    velGain: 0.02, stiffness: 0.085, damping: 0.8, dispMax: 110, skewMax: 16, stretch: 0.45,
+    freqX: [0.006, 0.012], freqY: [0.02, 0.06], travelVw: 36, rest: 0.01,
+  },
+  sculpt: {
+    radius: 1.35, detail: 2, inner: 0.58, bump: 0.12, gap: 0.965, crackGap: 0.06, tintEvery: 6,
+    roughness: 0.16, envIntensity: 1.1, fov: 35, camDist: 7.2, portraitFit: 1.35,
+    turns: 1.25, timeSpin: 0.08, tiltYaw: 0.5, tiltPitch: 0.35,
+    fadeIn: [0, 0.08], crack: [0.18, 0.34], explode: [0.34, 0.58], reassemble: [0.68, 0.9], stagger: 0.35,
+    push: [1.4, 3.4], jitter: 0.6, spin: [2, 6],
+    headA: [0.3, 0.38, 0.56, 0.64], headB: [0.74, 0.8, 0.94, 0.99],
+    bloom: { strength: 0.55, radius: 0.4, threshold: 0.85 },
+    ca: { base: 0.004, gain: 0.0012, max: 0.06, ease: 0.12 },
+    light: { intensity: 5, distance: 10 },
+    // RoomEnvironment area lights in source order: left, left back, right, front, back, top.
+    envLights: ['magenta', 'violet', 'magenta', 'cobalt', 'violet', 'lime'],
+  },
+  gallery: {
+    // Stills are inlined by build.mjs so WebGL can sample them from file://.
+    images: [
+      { src: '%%IMG:koi%%', cap: '빛의 잉어' },
+      { src: '%%IMG:moth%%', cap: '스테인드글라스 나방' },
+      { src: '%%IMG:city%%', cap: '물에 비친 유리 도시' },
+      { src: '%%IMG:diver%%', cap: '심해 잠수부' },
+      { src: '%%IMG:bloom%%', cap: '크롬 꽃' },
+    ],
+    range: [0.03, 0.97], hold: [0.3, 0.8], portraitZoom: 1.35, displace: 0.35,
+    ripple: { gain: 0.06, decay: 0.94, max: 1 }, title: [0, 0.07],
+  },
+  flight: {
+    dir: '../assets/video/', perspective: 800, near: 140, far: 3800, playDist: 2400,
+    panelVw: 56, panelVwMobile: 84, panelMaxPx: 980,
+    panels: [
+      { src: 'ad5-ink', cap: '잉크', x: -0.26, y: -0.1, z: -300, ry: 14 },
+      { src: 'v2', cap: '성운', x: 0.28, y: 0.12, z: -1400, ry: -16 },
+      { src: 'ad5-aurora', cap: '오로라', x: -0.22, y: 0.16, z: -2500, ry: 12 },
+      { src: 'v1', cap: '연기', x: 0.3, y: -0.14, z: -3600, ry: -14 },
+      { src: 'ad4-streak', cap: '네온 터널', x: -0.28, y: -0.06, z: -4700, ry: 16 },
+      { src: 'v3', cap: '크롬 바다', x: 0.04, y: 0.02, z: -5800, ry: 0 },
+    ],
+    zStart: 700, zEnd: -5950, fly: [0.02, 0.98], swayX: 0.14, swayY: 0.07, freqX: 2.2, freqY: 1.4,
+    yawGain: 0.6, tiltYaw: 7, tiltPitch: 5, stars: 90, starSpread: 1.3, title: [0, 0.06],
+  },
+  physics: {
+    words: ['GRAVITY', '중력'], colors: ['cobalt', 'violet', 'magenta', 'lime', 'white'],
+    restitution: 0.35, friction: 0.3, frictionAir: 0.012, density: 0.002, bodyScale: 0.96, chamfer: 0.14,
+    wall: 400, ceiling: 1.6, dropFrom: [0.1, 0.8], enter: 0.02, floorOff: 0.86,
+    pushRadius: 170, pushForce: 0.0009, velGain: 0.03, kickMin: -1.5, kickMax: 3, gravityEase: 0.15, stepMs: 1000 / 60,
+  },
+  line: {
+    seed: 5, ticks: 144, tickR: [470, 452, 432], orbits: 7, orbitR: [110, 430], orbitRy: [0.28, 0.55], spin: 50,
+    stars: 26, starR: 410, neighbours: 2, vTop: 240, vBottom: 770, vHalf: 250, vStars: 5,
+    tickDraw: [0.02, 0.22], orbitDraw: [0.06, 0.46], starIn: [0.24, 0.4], edgeDraw: [0.3, 0.62], vEdge: [0.52, 0.64],
+    vDraw: [0.62, 0.84], dim: [0.86, 0.95], dimTo: 0.14,
+  },
+  finale: { titleIn: [0.08, 0.5], copyIn: [0.55, 0.65] },
+};
+
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const coarse = matchMedia('(pointer: coarse)').matches;
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const clamp01 = (v) => clamp(v, 0, 1);
+const seg = (p, a, b) => clamp01((p - a) / (b - a));
+const segR = (p, r) => seg(p, r[0], r[1]);
+const smooth = (x) => x * x * (3 - 2 * x);
+const lerp = (a, b, t) => a + (b - a) * t;
+const lerpR = (r, t) => lerp(r[0], r[1], t);
+const rand = (a, b) => a + Math.random() * (b - a);
+const $ = (s) => document.querySelector(s);
+const $$ = (s) => [...document.querySelectorAll(s)];
+const dprNow = () => Math.min(devicePixelRatio || 1, CONFIG.dprMax);
+const pal = (name) => CONFIG.palette[name];
+/** In, hold, out envelope over four breakpoints. */
+const envelope = (p, r) => smooth(seg(p, r[0], r[1])) * (1 - smooth(seg(p, r[2], r[3])));
+/** Deterministic PRNG so the line drawing is the same on every load. */
+function mulberry32(seed) { let a = seed; return () => { a |= 0; a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+
+/* ───────── scroll engine ───────── */
+gsap.registerPlugin(ScrollTrigger);
+const lenis = reduce ? null : new Lenis({ lerp: CONFIG.lenisLerp });
+if (lenis) { lenis.on('scroll', ScrollTrigger.update); gsap.ticker.add((t) => lenis.raf(t * 1000)); gsap.ticker.lagSmoothing(0); }
+const velocity = () => (lenis ? lenis.velocity : 0);
+
+/** Progress of a sticky scene plus an optional visibility flag while any part is on screen. */
+function track(sel, onProgress, onVisible) {
+  const el = $(sel);
+  onProgress(0);
+  ScrollTrigger.create({ trigger: el, start: 'top top', end: 'bottom bottom', onUpdate: (s) => onProgress(s.progress) });
+  if (onVisible) ScrollTrigger.create({ trigger: el, start: 'top bottom', end: 'bottom top', onToggle: (s) => onVisible(s.isActive) });
+}
+
+/** Split "line|line" text into .ln > .ch > .ci spans and return the .ch nodes. */
+function split(el) {
+  const lines = el.textContent.split('|');
+  el.setAttribute('aria-label', el.dataset.label || lines.join(' '));
+  el.innerHTML = lines.map((l) => `<span class="ln" aria-hidden="true">${[...l].map((c) => c === ' ' ? '<span class="ch sp">&nbsp;</span>' : `<span class="ch"><span class="ci">${c}</span></span>`).join('')}</span>`).join('');
+  return [...el.querySelectorAll('.ch:not(.sp)')];
+}
+$$('[data-split]').forEach(split);
+
+/* ───────── pointer, cursor, stardust ───────── */
+const pointer = { x: innerWidth / 2, y: innerHeight / 2, dx: 0, dy: 0, moved: -1e9 };
+addEventListener('pointermove', (e) => { pointer.dx = e.clientX - pointer.x; pointer.dy = e.clientY - pointer.y; pointer.x = e.clientX; pointer.y = e.clientY; pointer.moved = performance.now(); });
+const cursor = $('#cursor'), cpos = { x: pointer.x, y: pointer.y };
+gsap.ticker.add(() => { cpos.x += (pointer.x - cpos.x) * 0.2; cpos.y += (pointer.y - cpos.y) * 0.2; cursor.style.transform = `translate(${cpos.x}px, ${cpos.y}px) translate(-50%, -50%)`; });
+$$('.magnet, .tilt-btn').forEach((el) => {
+  el.addEventListener('pointerenter', () => cursor.classList.add('big'));
+  el.addEventListener('pointerleave', () => cursor.classList.remove('big'));
+});
+
+{
+  const dust = $('#dust'), dctx = dust.getContext('2d'), bits = [];
+  const fitDust = () => { dust.width = innerWidth; dust.height = innerHeight; };
+  fitDust(); addEventListener('resize', fitDust);
+  addEventListener('pointermove', (e) => {
+    if (reduce) return;
+    for (let i = 0; i < 4; i++) bits.push({ x: e.clientX, y: e.clientY, vx: rand(-1, 1), vy: rand(-1.6, .4), life: 1, c: CONFIG.dustColors[i % CONFIG.dustColors.length] });
+  });
+  let dirty = false;
+  gsap.ticker.add(() => {
+    if (!bits.length && !dirty) return;
+    dctx.clearRect(0, 0, dust.width, dust.height);
+    for (let i = bits.length - 1; i >= 0; i--) {
+      const p = bits[i]; p.vy += .05; p.x += p.vx; p.y += p.vy; p.life -= .018;
+      if (p.life <= 0) { bits.splice(i, 1); continue; }
+      dctx.globalAlpha = p.life; dctx.fillStyle = p.c; dctx.shadowColor = p.c; dctx.shadowBlur = 10;
+      dctx.beginPath(); dctx.arc(p.x, p.y, 2 * p.life, 0, Math.PI * 2); dctx.fill();
+    }
+    dctx.globalAlpha = 1; dctx.shadowBlur = 0;
+    dirty = bits.length > 0;
+  });
+}
+
+/* ───────── progress bar + HUD ───────── */
+{
+  const progressEl = $('#progress');
+  ScrollTrigger.create({ start: 0, end: 'max', onUpdate: (s) => { progressEl.style.transform = `scaleX(${s.progress})`; } });
+  const hudI = $('#hud-i'), hudN = $('#hud-n');
+  $$('[data-scene]').forEach((el, i) => ScrollTrigger.create({ trigger: el, start: 'top center', end: 'bottom center',
+    onToggle: (s) => { if (s.isActive) { hudI.textContent = String(i + 1).padStart(2, '0'); hudN.textContent = el.dataset.scene; } } }));
+}
+
+/* ───────── tilt: gyroscope on touch devices, pointer on desktop ───────── */
+const tilt = { x: 0, y: 0, tx: 0, ty: 0 };
+{
+  const cfg = CONFIG.tilt, btn = $('#tilt-btn');
+  let baseBeta = null;
+  const onOrient = (e) => {
+    if (e.gamma === null || e.beta === null) return;
+    if (baseBeta === null) baseBeta = e.beta;
+    tilt.tx = clamp(e.gamma / cfg.rangeDeg, -1, 1);
+    tilt.ty = clamp((e.beta - baseBeta) / cfg.rangeDeg, -1, 1);
+  };
+  const listen = () => addEventListener('deviceorientation', onOrient);
+  if (!coarse) {
+    addEventListener('pointermove', (e) => { tilt.tx = (e.clientX / innerWidth) * 2 - 1; tilt.ty = (e.clientY / innerHeight) * 2 - 1; });
+  } else if (typeof DeviceOrientationEvent === 'undefined') {
+    console.info('DeviceOrientationEvent is not available, tilt stays level');
+  } else if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+    // iOS only grants motion access from a user gesture.
+    btn.hidden = false;
+    btn.addEventListener('click', async () => {
+      btn.hidden = true;
+      try {
+        const state = await DeviceOrientationEvent.requestPermission();
+        if (state === 'granted') listen(); else console.error('device orientation permission', state);
+      } catch (e) { console.error('device orientation permission failed', e); }
+    });
+  } else listen();
+  gsap.ticker.add(() => { if (reduce) return; tilt.x += (tilt.tx - tilt.x) * cfg.ease; tilt.y += (tilt.ty - tilt.y) * cfg.ease; });
+}
+
+/* ───────── one WebGL renderer shared by every GL scene ───────── */
+// Each mode draws only inside its own sticky pin rectangle (viewport + scissor), so two scenes can share the screen during a hand-off.
+function createStage(canvas) {
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
+  renderer.setClearColor(0x000000, 1);
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  const modes = [];
+  let W = 1, H = 1, dirty = true, painted = false;
+  const fit = () => {
+    W = canvas.clientWidth; H = canvas.clientHeight;
+    renderer.setPixelRatio(dprNow()); renderer.setSize(W, H, false);
+    modes.forEach((m) => m.resize && m.resize(W, m.pin.clientHeight));
+    dirty = true;
+  };
+  const clearAll = () => { renderer.setRenderTarget(null); renderer.setScissorTest(false); renderer.setViewport(0, 0, W, H); renderer.clear(); };
+  function frame(time, dt) {
+    const live = modes.filter((m) => m.on);
+    if (!live.length) { if (painted) { clearAll(); painted = false; } return; }
+    if (reduce && !dirty) return;
+    dirty = false;
+    clearAll();
+    for (const m of live) {
+      const r = m.pin.getBoundingClientRect();
+      if (r.bottom <= 0 || r.top >= H) continue;
+      const top = Math.max(0, r.top), bottom = Math.min(H, r.bottom);
+      renderer.setViewport(0, H - r.bottom, W, r.height);
+      renderer.setScissor(0, H - bottom, W, bottom - top);
+      renderer.setScissorTest(true);
+      m.draw(time, dt, r);
+    }
+    renderer.setScissorTest(false);
+    painted = true;
+  }
+  const add = (mode) => { modes.push({ on: false, ...mode }); const m = modes[modes.length - 1]; if (m.resize) m.resize(W, m.pin.clientHeight); return m; };
+  addEventListener('resize', fit);
+  if (reduce) addEventListener('scroll', () => { dirty = true; }, { passive: true });
+  fit();
+  return { renderer, add, frame, markDirty: () => { dirty = true; }, size: () => [W, H] };
+}
+
+const QUAD_VS = `varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0., 1.); }`;
+function fullscreenQuad(material) {
+  const scene = new THREE.Scene();
+  scene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), material));
+  return scene;
+}
+const QUAD_CAM = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+
+/* ───────── raymarched chrome metaballs ───────── */
+const RAY_FS = `
+precision highp float;
+#define BALLS 6
+uniform vec2 uRes;
+uniform float uTime, uSpread, uBlend, uOrbit, uHeight, uDist, uGlow;
+uniform vec3 uLight;
+varying vec2 vUv;
+const vec3 COBALT = vec3(.24, .30, 1.);
+const vec3 VIOLET = vec3(.55, .36, 1.);
+const vec3 MAGENTA = vec3(1., .25, .82);
+const vec3 LIME = vec3(.78, 1., .24);
+float smin(float a, float b, float k) { float h = clamp(.5 + .5 * (b - a) / k, 0., 1.); return mix(b, a, h) - k * h * (1. - h); }
+vec3 ball(float f) {
+  float a = f * 1.0472 + uTime * (.22 + .04 * f);
+  vec3 dir = normalize(vec3(cos(a), sin(f * 2.1 + uTime * .31) * .7, sin(a)));
+  return dir * uSpread * (1. + .2 * sin(uTime * .7 + f * 1.3));
+}
+float map(vec3 p) {
+  float d = length(p) - .62;
+  for (int i = 0; i < BALLS; i++) { float f = float(i); d = smin(d, length(p - ball(f)) - (.3 + .12 * fract(f * .618)), uBlend); }
+  return d;
+}
+vec3 nrm(vec3 p) {
+  vec2 e = vec2(.0015, -.0015);
+  return normalize(e.xyy * map(p + e.xyy) + e.yyx * map(p + e.yyx) + e.yxy * map(p + e.yxy) + e.xxx * map(p + e.xxx));
+}
+vec3 env(vec3 d) {
+  float a = atan(d.z, d.x);
+  vec3 c = vec3(.004, .004, .012);
+  float band = smoothstep(.14, .0, abs(d.y - .1));
+  float boxes = smoothstep(.3, .5, abs(sin(a * 2.)));
+  c += band * boxes * mix(COBALT, VIOLET, .5 + .5 * sin(a * 1.5)) * 1.7;
+  c += smoothstep(.86, .98, d.y) * vec3(.75, .8, 1.) * 1.1;
+  c += pow(max(dot(d, normalize(vec3(-.8, .35, .45))), 0.), 20.) * MAGENTA * 3.;
+  c += pow(max(dot(d, normalize(vec3(.9, .15, -.35))), 0.), 26.) * COBALT * 3.2;
+  c += smoothstep(-.05, -.7, d.y) * VIOLET * .1;
+  return c;
+}
+float march(vec3 ro, vec3 rd, float maxT) {
+  float t = 0.;
+  for (int i = 0; i < 84; i++) { float h = map(ro + rd * t); if (h < .0015 * (1. + t)) return t; t += h; if (t > maxT) break; }
+  return -1.;
+}
+float marchShort(vec3 ro, vec3 rd, float maxT) {
+  float t = 0.;
+  for (int i = 0; i < 28; i++) { float h = map(ro + rd * t); if (h < .003) return t; t += h; if (t > maxT) break; }
+  return -1.;
+}
+void main() {
+  vec2 uv = (vUv - .5) * uRes / min(uRes.x, uRes.y);
+  vec3 ro = vec3(sin(uOrbit) * uDist, uHeight, cos(uOrbit) * uDist);
+  vec3 ww = normalize(-ro), uu = normalize(cross(ww, vec3(0., 1., 0.))), vv = cross(uu, ww);
+  vec3 rd = normalize(uv.x * uu + uv.y * vv + 1.8 * ww);
+  vec3 col = VIOLET * .07 * exp(-dot(uv, uv) * 2.5) * uGlow;
+  float t = march(ro, rd, 16.);
+  if (t > 0.) {
+    vec3 p = ro + rd * t, n = nrm(p), r = reflect(rd, n);
+    float facing = max(dot(n, -rd), 0.);
+    vec3 refl = env(r);
+    float t2 = marchShort(p + n * .02, r, 5.);
+    if (t2 > 0.) { vec3 q = p + n * .02 + r * t2; refl = env(reflect(r, nrm(q))) * .7; }
+    col = refl * (.55 + .45 * pow(1. - facing, 4.));
+    vec3 L = normalize(uLight - p);
+    col += pow(max(dot(r, L), 0.), 70.) * LIME * 2.6;
+    col += pow(1. - facing, 3.) * mix(COBALT, MAGENTA, .5 + .5 * n.y) * .85;
+  }
+  col = 1. - exp(-col * 1.3);
+  gl_FragColor = vec4(col, 1.);
+}`;
+const BLIT_FS = `uniform sampler2D tMap; varying vec2 vUv; void main(){ gl_FragColor = texture2D(tMap, vUv); }`;
+
+/** Raymarch into a reduced-resolution target, then upscale into the pin rectangle. */
+function createRaymarch(stage, pin, state) {
+  const cfg = CONFIG.raymarch;
+  const uniforms = { uRes: { value: new THREE.Vector2(1, 1) }, uTime: { value: 0 }, uSpread: { value: 0 }, uBlend: { value: .5 }, uOrbit: { value: 0 },
+    uHeight: { value: 0 }, uDist: { value: 6 }, uGlow: { value: 1 }, uLight: { value: new THREE.Vector3(2, 2, 4) } };
+  const ray = fullscreenQuad(new THREE.ShaderMaterial({ vertexShader: QUAD_VS, fragmentShader: RAY_FS, uniforms, depthTest: false, depthWrite: false }));
+  const rt = new THREE.WebGLRenderTarget(1, 1, { depthBuffer: false });
+  const blit = fullscreenQuad(new THREE.ShaderMaterial({ vertexShader: QUAD_VS, fragmentShader: BLIT_FS, uniforms: { tMap: { value: rt.texture } }, depthTest: false, depthWrite: false }));
+  const resize = (W, H) => {
+    const k = dprNow() * (W < cfg.mobileBreak ? cfg.scaleMobile : cfg.scale);
+    rt.setSize(Math.max(1, Math.round(W * k)), Math.max(1, Math.round(H * k)));
+    uniforms.uRes.value.set(rt.width, rt.height);
+  };
+  const draw = (time, dt, rect) => {
+    state(uniforms, time, rect);
+    stage.renderer.setRenderTarget(rt); stage.renderer.render(ray, QUAD_CAM);
+    stage.renderer.setRenderTarget(null); stage.renderer.render(blit, QUAD_CAM);
+  };
+  return stage.add({ pin, draw, resize });
+}
+
+/** World-space light that follows the pointer, or drifts on its own when the pointer is idle. */
+function pointerLight(out, time, rect) {
+  const idle = performance.now() - pointer.moved > CONFIG.raymarch.lightAutoMs;
+  const nx = idle ? Math.sin(time * .5) : (pointer.x / rect.width) * 2 - 1;
+  const ny = idle ? Math.cos(time * .37) * .5 : 1 - ((pointer.y - rect.top) / rect.height) * 2;
+  out.set(nx * 4, ny * 3 + .5, 4);
+}
+
+/* ───────── 01 hero ───────── */
+function initHero(stage) {
+  const cfg = CONFIG.raymarch, chars = $$('#title .ch'), inner = $$('#title .ci'), num5 = $('#num5');
+  const vec = chars.map(() => ({ x: rand(-200, 200), y: rand(-340, 340), r: rand(-60, 60), z: rand(-200, 400) }));
+  let prog = 0;
+  if (!reduce) gsap.from(inner, { yPercent: 120, rotate: 12, opacity: 0, stagger: .05, duration: 1.2, ease: 'expo.out', delay: .2 });
+  const mode = createRaymarch(stage, $('#hero-pin'), (u, time, rect) => {
+    const p = reduce ? .3 : prog, t = reduce ? 4 : time;
+    const bump = smooth(segR(p, cfg.split)) * (1 - smooth(segR(p, cfg.merge)));
+    u.uTime.value = t;
+    u.uSpread.value = cfg.spreadBase + cfg.spreadMax * bump;
+    u.uBlend.value = lerp(cfg.blendMerged, cfg.blendSplit, bump);
+    u.uOrbit.value = p * cfg.orbitTurns * Math.PI * 2 + tilt.x * cfg.orbitTilt + t * cfg.timeSpin;
+    u.uHeight.value = cfg.heightBase + tilt.y * cfg.heightTilt;
+    u.uDist.value = lerp(cfg.distMerged, cfg.distSplit, bump);
+    u.uGlow.value = 1;
+    pointerLight(u.uLight.value, t, rect);
+  });
+  track('#s-hero', (p) => {
+    prog = p;
+    const k = reduce ? 0 : smooth(segR(p, cfg.title));
+    chars.forEach((c, i) => { const v = vec[i]; c.style.transform = `translate3d(${v.x * k}px, ${v.y * k}px, ${v.z * k}px) rotate(${v.r * k}deg)`; c.style.opacity = 1 - k; });
+    const v = reduce ? 0 : smooth(segR(p, cfg.v));
+    num5.style.transform = `translate(${v * -8}vw, ${v * 22}vh) scale(${1 + v * 2.4}) rotate(${v * -18}deg)`;
+    num5.style.opacity = 1 - seg(v, .4, 1);
+    stage.markDirty();
+  }, (on) => { mode.on = on; stage.markDirty(); });
+}
+
+/* ───────── 02 liquid type: velocity drives displacement and stretch, a spring brings it back ───────── */
+function initLiquid() {
+  const cfg = CONFIG.liquid, rows = $$('.liq-row'), turb = $('#liq-turb'), disp = $('#liq-disp');
+  const spring = { x: 0, v: 0 };
+  let prog = 0, on = false;
+  const layout = () => rows.forEach((row, i) => {
+    const dir = i % 2 ? 1 : -1, s = spring.x, a = Math.abs(s);
+    const shift = reduce ? 0 : dir * (prog - .5) * cfg.travelVw;
+    const warp = reduce ? '' : ` skewX(${-s * cfg.skewMax}deg) scaleY(${1 + s * cfg.stretch})`;
+    row.style.transform = `translateX(-50%) translateX(${shift}vw)${warp}`;
+    row.style.filter = !reduce && a > cfg.rest ? 'url(#liquid)' : 'none';
+  });
+  track('#s-liquid', (p) => { prog = p; layout(); }, (v) => { on = v; });
+  if (reduce) return;
+  gsap.ticker.add(() => {
+    if (!on) return;
+    const target = clamp(velocity() * cfg.velGain, -1, 1);
+    spring.v += (target - spring.x) * cfg.stiffness;
+    spring.v *= cfg.damping;
+    spring.x += spring.v;
+    const a = Math.min(1, Math.abs(spring.x));
+    disp.setAttribute('scale', (a * cfg.dispMax).toFixed(1));
+    turb.setAttribute('baseFrequency', `${lerpR(cfg.freqX, a).toFixed(4)} ${lerpR(cfg.freqY, a).toFixed(4)}`);
+    layout();
+  });
+}
+
+/* ───────── 03 sculpture: fractured chrome icosahedron with bloom and velocity chromatic aberration ───────── */
+const CA_SHADER = {
+  uniforms: { tDiffuse: { value: null }, amount: { value: 0 } },
+  vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.); }`,
+  fragmentShader: `uniform sampler2D tDiffuse; uniform float amount; varying vec2 vUv;
+    void main(){ vec2 d = vUv - .5; vec2 o = d * amount * (.4 + length(d) * 2.);
+      gl_FragColor = vec4(texture2D(tDiffuse, vUv + o).r, texture2D(tDiffuse, vUv).g, texture2D(tDiffuse, vUv - o).b, 1.); }`,
+};
+
+/** RoomEnvironment with its area lights recoloured to the neon palette and the room darkened. */
+function neonEnvironment(renderer) {
+  const env = new RoomEnvironment(renderer), neon = CONFIG.sculpt.envLights.map((n) => new THREE.Color(pal(n)));
+  let li = 0;
+  env.traverse((o) => {
+    if (!o.isMesh) return;
+    if (o.material.isMeshBasicMaterial) { const k = o.material.color.r; o.material = o.material.clone(); o.material.color.copy(neon[li++ % neon.length]).multiplyScalar(k); }
+    else if (o.material.isMeshStandardMaterial) o.material.color.setHex(0x0b0b16);
+  });
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  const tex = pmrem.fromScene(env, 0.04).texture;
+  pmrem.dispose();
+  return tex;
+}
+
+/** One wedge per icosahedron face: outer triangle, inner triangle and three sides, centred on its own centroid. */
+function buildShards(cfg) {
+  const base = new THREE.IcosahedronGeometry(cfg.radius, cfg.detail), pos = base.attributes.position;
+  const bumpy = (v) => v.multiplyScalar(1 + cfg.bump * Math.sin(v.x * 3.1 + v.y * 1.7) * Math.cos(v.z * 2.3 - v.y));
+  const shards = [];
+  for (let i = 0; i < pos.count; i += 3) {
+    const o = [0, 1, 2].map((k) => bumpy(new THREE.Vector3().fromBufferAttribute(pos, i + k)));
+    const inn = o.map((v) => v.clone().multiplyScalar(cfg.inner));
+    const cen = o[0].clone().add(o[1]).add(o[2]).add(inn[0]).add(inn[1]).add(inn[2]).divideScalar(6);
+    const tris = [[o[0], o[1], o[2]], [inn[0], inn[2], inn[1]]];
+    for (let k = 0; k < 3; k++) { const a = o[k], b = o[(k + 1) % 3], a2 = inn[k], b2 = inn[(k + 1) % 3]; tris.push([a, a2, b2], [a, b2, b]); }
+    const arr = new Float32Array(tris.length * 9);
+    tris.flat().forEach((v, j) => { arr[j * 3] = (v.x - cen.x) * cfg.gap; arr[j * 3 + 1] = (v.y - cen.y) * cfg.gap; arr[j * 3 + 2] = (v.z - cen.z) * cfg.gap; });
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(arr, 3)); g.computeVertexNormals();
+    shards.push({ g, cen, dir: cen.clone().normalize() });
+  }
+  base.dispose();
+  return shards;
+}
+
+function initSculpture(stage) {
+  const cfg = CONFIG.sculpt, renderer = stage.renderer, pin = $('#sculpt-pin');
+  const scene = new THREE.Scene(), camera = new THREE.PerspectiveCamera(cfg.fov, 1, .1, 100), group = new THREE.Group();
+  scene.environment = neonEnvironment(renderer);
+  scene.add(group);
+  const chrome = new THREE.MeshPhysicalMaterial({ color: 0xffffff, metalness: 1, roughness: cfg.roughness, flatShading: true, side: THREE.DoubleSide, envMapIntensity: cfg.envIntensity });
+  const tinted = chrome.clone(); tinted.color.set(pal('violet'));
+  const light = new THREE.PointLight(pal('lime'), cfg.light.intensity, cfg.light.distance); scene.add(light);
+  const pieces = buildShards(cfg).map((s, i) => {
+    const mesh = new THREE.Mesh(s.g, i % cfg.tintEvery === 0 ? tinted : chrome);
+    group.add(mesh);
+    const jitter = new THREE.Vector3(rand(-1, 1), rand(-1, 1), rand(-1, 1)).multiplyScalar(cfg.jitter);
+    return { mesh, cen: s.cen, push: s.dir.clone().multiplyScalar(rand(...cfg.push)).add(jitter), axis: new THREE.Vector3(rand(-1, 1), rand(-1, 1), rand(-1, 1)).normalize(),
+      spin: rand(...cfg.spin), delay: (s.dir.y * .5 + .5) * cfg.stagger };
+  });
+  const composer = new EffectComposer(renderer, new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: 4 }));
+  composer.addPass(new RenderPass(scene, camera));
+  const bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), cfg.bloom.strength, cfg.bloom.radius, cfg.bloom.threshold);
+  composer.addPass(bloom);
+  const ca = new ShaderPass(CA_SHADER); composer.addPass(ca);
+  composer.addPass(new OutputPass());
+  const heads = { a: $('#sc-a'), b: $('#sc-b') };
+  let prog = 0, caAmt = cfg.ca.base;
+  const resize = (W, H) => {
+    camera.aspect = W / H; camera.position.set(0, 0, cfg.camDist / Math.min(1, camera.aspect * cfg.portraitFit)); camera.updateProjectionMatrix();
+    composer.setPixelRatio(dprNow()); composer.setSize(W, H);
+  };
+  const pose = (time) => {
+    const p = reduce ? 0 : prog;
+    const crack = smooth(segR(p, cfg.crack)), out = segR(p, cfg.explode), back = segR(p, cfg.reassemble);
+    pieces.forEach((s) => {
+      const e = smooth(clamp01(out * (1 + cfg.stagger) - s.delay)) * (1 - smooth(clamp01(back * (1 + cfg.stagger) - (cfg.stagger - s.delay))));
+      s.mesh.position.copy(s.cen).multiplyScalar(1 + crack * cfg.crackGap).addScaledVector(s.push, e);
+      s.mesh.quaternion.setFromAxisAngle(s.axis, s.spin * e);
+    });
+    const t = reduce ? 0 : time;
+    group.rotation.y = p * cfg.turns * Math.PI * 2 + t * cfg.timeSpin + tilt.x * cfg.tiltYaw;
+    group.rotation.x = .35 + Math.sin(p * Math.PI) * .4 + tilt.y * cfg.tiltPitch;
+    group.scale.setScalar(reduce ? 1 : lerp(.6, 1, smooth(segR(p, cfg.fadeIn))));
+  };
+  const draw = (time, dt, rect) => {
+    pose(time);
+    pointerLight(light.position, time, rect);
+    const target = reduce ? cfg.ca.base : Math.min(cfg.ca.max, cfg.ca.base + Math.abs(velocity()) * cfg.ca.gain);
+    caAmt += (target - caAmt) * cfg.ca.ease;
+    ca.uniforms.amount.value = caAmt;
+    composer.render(dt);
+  };
+  const mode = stage.add({ pin, draw, resize });
+  track('#s-sculpt', (p) => {
+    prog = p;
+    heads.a.style.opacity = reduce ? 1 : envelope(p, cfg.headA);
+    heads.a.style.transform = `translateX(${reduce ? 0 : (1 - envelope(p, cfg.headA)) * -6}vw)`;
+    heads.b.style.opacity = reduce ? 1 : envelope(p, cfg.headB);
+    heads.b.style.transform = `translateX(${reduce ? 0 : (1 - envelope(p, cfg.headB)) * 6}vw)`;
+    stage.markDirty();
+  }, (on) => { mode.on = on; stage.markDirty(); });
+}
+
+/* ───────── 04 displacement gallery ───────── */
+const GAL_FS = `
+precision highp float;
+uniform sampler2D uA, uB;
+uniform vec2 uScaleA, uScaleB, uMouse;
+uniform float uMix, uTime, uRipple, uSeed, uAspect, uDisplace;
+varying vec2 vUv;
+float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+float noise(vec2 p) { vec2 i = floor(p), f = fract(p), u = f * f * (3. - 2. * f);
+  return mix(mix(hash(i), hash(i + vec2(1., 0.)), u.x), mix(hash(i + vec2(0., 1.)), hash(i + vec2(1., 1.)), u.x), u.y); }
+float fbm(vec2 p) { float v = 0., a = .5; for (int i = 0; i < 5; i++) { v += a * noise(p); p *= 2.03; a *= .5; } return v; }
+float frame(vec2 q) { vec2 m = smoothstep(0., .03, q) * smoothstep(0., .03, 1. - q); return m.x * m.y; }
+vec3 still(sampler2D t, vec2 uv, vec2 s) {
+  vec2 q = (uv - .5) * s + .5;
+  return texture2D(t, clamp(q, 0., 1.)).rgb * frame(q);
+}
+void main() {
+  vec2 uv = vUv;
+  vec2 d = (uv - uMouse) * vec2(uAspect, 1.);
+  float r = length(d);
+  uv += d / (r + 1e-4) * sin(r * 38. - uTime * 7.) * exp(-r * 7.) * uRipple * .03;
+  float n = fbm(uv * vec2(3., 2.2) + uSeed);
+  float th = uMix * 1.3 - .15;
+  float m = 1. - smoothstep(th - .12, th + .12, n * .75 + uv.x * .25);
+  vec2 dir = vec2(n - .5, n * .6 - .3);
+  vec3 a = still(uA, uv + dir * uMix * uDisplace, uScaleA);
+  vec3 b = still(uB, uv - dir * (1. - uMix) * uDisplace, uScaleB);
+  vec3 col = mix(a, b, m);
+  // Keep the seam glow on the picture, not on the black bars of a portrait screen.
+  float onImage = max(frame((uv - .5) * uScaleA + .5), frame((uv - .5) * uScaleB + .5));
+  float edge = clamp(m * (1. - m) * 4., 0., 1.) * onImage;
+  col += edge * mix(vec3(.24, .3, 1.), vec3(1., .25, .82), n) * 1.1;
+  gl_FragColor = vec4(col, 1.);
+}`;
+
+function initGallery(stage) {
+  const cfg = CONFIG.gallery, pin = $('#gallery-pin'), idxEl = $('#gal-idx'), nameEl = $('#gal-name'), title = $('#gal-title');
+  const n = cfg.images.length;
+  $('#gal-tot').textContent = `/ ${String(n).padStart(2, '0')}`;
+  const loader = new THREE.TextureLoader();
+  const textures = cfg.images.map((img, i) => loader.load(img.src, () => stage.markDirty(), undefined, (e) => console.error(`gallery still ${i + 1} (${img.cap}) failed to load`, e)));
+  textures.forEach((t) => { t.minFilter = THREE.LinearFilter; t.generateMipmaps = false; });
+  const u = { uA: { value: textures[0] }, uB: { value: textures[1] }, uScaleA: { value: new THREE.Vector2(1, 1) }, uScaleB: { value: new THREE.Vector2(1, 1) },
+    uMouse: { value: new THREE.Vector2(.5, .5) }, uMix: { value: 0 }, uTime: { value: 0 }, uRipple: { value: 0 }, uSeed: { value: 0 }, uAspect: { value: 1 }, uDisplace: { value: cfg.displace } };
+  const quad = fullscreenQuad(new THREE.ShaderMaterial({ vertexShader: QUAD_VS, fragmentShader: GAL_FS, uniforms: u, depthTest: false, depthWrite: false }));
+  let W = 1, H = 1, pair = 0, mix = 0, shown = -1, ripple = 0, last = { x: pointer.x, y: pointer.y };
+  /** uv scale that maps the viewport onto the still: cover in landscape, width fit with extra zoom in portrait. */
+  const scaleFor = (tex, out) => {
+    if (!tex.image) return out;
+    const iw = tex.image.width, ih = tex.image.height;
+    const s = W >= H ? Math.max(W / iw, H / ih) : (W / iw) * cfg.portraitZoom;
+    return out.set(W / (iw * s), H / (ih * s));
+  };
+  const draw = (time, dt, rect) => {
+    u.uA.value = textures[pair]; u.uB.value = textures[pair + 1];
+    scaleFor(u.uA.value, u.uScaleA.value); scaleFor(u.uB.value, u.uScaleB.value);
+    u.uMix.value = mix; u.uSeed.value = pair * 3.7; u.uTime.value = reduce ? 0 : time; u.uAspect.value = W / H;
+    const inside = pointer.y >= rect.top && pointer.y <= rect.bottom;
+    const moved = Math.hypot(pointer.x - last.x, pointer.y - last.y);
+    last = { x: pointer.x, y: pointer.y };
+    if (!reduce && inside) ripple = Math.min(cfg.ripple.max, ripple + moved * cfg.ripple.gain);
+    ripple *= cfg.ripple.decay;
+    u.uRipple.value = ripple;
+    u.uMouse.value.set(pointer.x / rect.width, 1 - (pointer.y - rect.top) / rect.height);
+    stage.renderer.render(quad, QUAD_CAM);
+  };
+  const mode = stage.add({ pin, draw, resize: (w, h) => { W = w; H = h; } });
+  const caption = (i) => {
+    if (i === shown) return;
+    shown = i; idxEl.textContent = String(i + 1).padStart(2, '0'); nameEl.textContent = cfg.images[i].cap;
+    if (!reduce) gsap.fromTo(nameEl, { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: .6, ease: 'expo.out' });
+  };
+  track('#s-gallery', (p) => {
+    const t = segR(p, cfg.range) * (n - 1);
+    pair = Math.min(n - 2, Math.floor(t));
+    const f = smooth(segR(t - pair, cfg.hold));
+    mix = reduce ? Math.round(f) : f;
+    caption(mix > .5 ? pair + 1 : pair);
+    const k = reduce ? 1 : segR(p, cfg.title);
+    title.style.opacity = 1 - smooth(k);
+    title.style.transform = `translateY(-50%) scale(${1 + k * .3})`;
+    stage.markDirty();
+  }, (on) => { mode.on = on; stage.markDirty(); });
+}
+
+/* ───────── 05 flight: CSS 3D camera through video panels ───────── */
+/** Play only while wanted; with preload none, play() is what starts the download. */
+function videoSwitch(v) {
+  v.addEventListener('error', () => console.error('video failed to load:', v.currentSrc || v.getAttribute('src')));
+  return (on) => {
+    if (reduce) return;
+    if (on && v.paused) v.play().catch((e) => { if (e.name !== 'AbortError') console.warn('video play blocked:', e.name); });
+    else if (!on && !v.paused) v.pause();
+  };
+}
+
+function initFlight() {
+  const cfg = CONFIG.flight, section = $('#s-flight'), stage = $('#stage'), world = $('#world'), title = $('#fl-title');
+  if (reduce) section.classList.add('static');
+  stage.style.setProperty('--persp', `${cfg.perspective}px`);
+  const panels = cfg.panels.map((d) => {
+    const el = document.createElement('figure');
+    el.className = 'panel';
+    el.innerHTML = `<video muted loop playsinline preload="none" poster="${cfg.dir}${d.src}.webp" src="${cfg.dir}${d.src}.mp4" aria-hidden="true"></video><figcaption>${d.cap}</figcaption>`;
+    world.append(el);
+    return { el, d, play: videoSwitch(el.querySelector('video')), vis: null };
+  });
+  const colors = Object.values(CONFIG.palette);
+  const stars = reduce ? [] : Array.from({ length: cfg.stars }, (_, i) => {
+    const el = document.createElement('i'); el.className = 'star'; el.style.setProperty('--c', colors[i % colors.length]); world.append(el);
+    return { el, x: rand(-1, 1) * cfg.starSpread, y: rand(-1, 1) * cfg.starSpread, z: rand(cfg.zEnd - 600, cfg.zStart) };
+  });
+  let W = 1, H = 1, pw = 1;
+  const fit = () => {
+    W = stage.clientWidth; H = stage.clientHeight;
+    pw = Math.min(cfg.panelMaxPx, W * (W < 760 ? cfg.panelVwMobile : cfg.panelVw) / 100);
+    world.style.setProperty('--pw', `${pw}px`);
+  };
+  const depthAlpha = (d) => smooth(seg(d, cfg.far, cfg.far * .55)) * smooth(seg(d, cfg.near, cfg.near * 2.5));
+  const camAt = (t) => ({ x: W * cfg.swayX * Math.sin(t * Math.PI * cfg.freqX), y: H * cfg.swayY * Math.sin(t * Math.PI * cfg.freqY + 1), z: lerp(cfg.zStart, cfg.zEnd, t) });
+  const place = (el, x, y, z, extra, d) => {
+    const a = depthAlpha(d), vis = a > .002;
+    el.style.visibility = vis ? 'visible' : 'hidden';
+    if (vis) { el.style.transform = `translate3d(${x}px, ${y}px, ${z}px) translate(-50%, -50%)${extra}`; el.style.opacity = a; }
+    return vis;
+  };
+  const render = (p) => {
+    const t = segR(p, cfg.fly), c = camAt(t), ahead = camAt(Math.min(1, t + .01));
+    const yaw = Math.atan2(ahead.x - c.x, c.z - ahead.z) * (180 / Math.PI) * cfg.yawGain + tilt.x * cfg.tiltYaw;
+    const pitch = -Math.atan2(ahead.y - c.y, c.z - ahead.z) * (180 / Math.PI) * cfg.yawGain - tilt.y * cfg.tiltPitch;
+    world.style.transform = `translateZ(${cfg.perspective}px) rotateX(${pitch}deg) rotateY(${yaw}deg) translate3d(${-c.x}px, ${-c.y}px, ${-c.z}px)`;
+    panels.forEach((s) => {
+      const d = c.z - s.d.z;
+      const vis = place(s.el, s.d.x * W, s.d.y * H, s.d.z, ` rotateY(${s.d.ry}deg)`, d);
+      s.play(vis && d < cfg.playDist && d > 0);
+    });
+    stars.forEach((s) => place(s.el, s.x * W, s.y * H, s.z, '', c.z - s.z));
+    const k = segR(p, cfg.title);
+    title.style.opacity = 1 - smooth(k);
+    title.style.transform = `translateY(-50%) scale(${1 + k * .4})`;
+  };
+  fit();
+  if (reduce) { title.style.opacity = 0; return; }
+  let prog = 0, on = false;
+  addEventListener('resize', () => { fit(); render(prog); });
+  track('#s-flight', (p) => { prog = p; render(p); }, (v) => { on = v; if (!v) panels.forEach((s) => s.play(false)); });
+  gsap.ticker.add(() => { if (on && (Math.abs(tilt.x - tilt.tx) > .001 || Math.abs(tilt.y - tilt.ty) > .001)) render(prog); });
+}
+
+/* ───────── 06 physics: Matter.js bodies drive DOM letters ───────── */
+/** Ink box of a letter inside its span (line-height 1), so the body hugs the glyph instead of the line box. */
+const inkCtx = document.createElement('canvas').getContext('2d');
+function measureInk(l) {
+  const cs = getComputedStyle(l.el);
+  inkCtx.font = `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+  const m = inkCtx.measureText(l.el.textContent), lineH = l.el.offsetHeight;
+  const base = (lineH - (m.fontBoundingBoxAscent + m.fontBoundingBoxDescent)) / 2 + m.fontBoundingBoxAscent;
+  l.ox = -m.actualBoundingBoxLeft; l.oy = base - m.actualBoundingBoxAscent;
+  l.w = m.actualBoundingBoxRight + m.actualBoundingBoxLeft; l.h = m.actualBoundingBoxAscent + m.actualBoundingBoxDescent;
+  l.el.style.transformOrigin = `${l.ox + l.w / 2}px ${l.oy + l.h / 2}px`;
+}
+function makeLetters(pin, cfg) {
+  const glyphs = cfg.words.flatMap((w) => [...w]);
+  pin.setAttribute('aria-label', cfg.words.join(' '));
+  pin.setAttribute('role', 'img');
+  return glyphs.map((g, i) => {
+    const el = document.createElement('span');
+    el.className = 'pl'; el.textContent = g; el.setAttribute('aria-hidden', 'true');
+    el.style.setProperty('--c', pal(cfg.colors[i % cfg.colors.length]));
+    pin.append(el);
+    return { el, body: null, w: 0, h: 0, ox: 0, oy: 0 };
+  });
+}
+
+function initPhysics() {
+  const cfg = CONFIG.physics, section = $('#s-phys'), pin = $('#phys-pin');
+  const letters = makeLetters(pin, cfg);
+  if (reduce) { section.classList.add('static'); return; }
+  if (typeof Matter === 'undefined') { console.error('matter-js failed to load, letters stay static'); section.classList.add('static'); return; }
+  const { Engine, Bodies, Body, Composite } = Matter;
+  const engine = Engine.create();
+  let W = 0, H = 0, walls = null, floorOn = true, dropped = false, on = false, prog = 0;
+  const makeWalls = () => {
+    const t = cfg.wall, opt = { isStatic: true };
+    return { floor: Bodies.rectangle(W / 2, H + t / 2, W * 3, t, opt), left: Bodies.rectangle(-t / 2, 0, t, H * 5, opt),
+      right: Bodies.rectangle(W + t / 2, 0, t, H * 5, opt), ceil: Bodies.rectangle(W / 2, -H * cfg.ceiling - t / 2, W * 3, t, opt) };
+  };
+  const spawn = (l) => {
+    if (l.body) Composite.remove(engine.world, l.body);
+    l.body = Bodies.rectangle(rand(l.w, W - l.w), -rand(...cfg.dropFrom) * H, l.w * cfg.bodyScale, l.h * cfg.bodyScale,
+      { chamfer: { radius: Math.min(l.w, l.h) * cfg.chamfer }, restitution: cfg.restitution, friction: cfg.friction, frictionAir: cfg.frictionAir, density: cfg.density, angle: rand(-.6, .6) });
+    Composite.add(engine.world, l.body);
+  };
+  const build = () => {
+    W = pin.clientWidth; H = pin.clientHeight;
+    if (walls) Composite.remove(engine.world, Object.values(walls));
+    walls = makeWalls(); floorOn = true;
+    Composite.add(engine.world, Object.values(walls));
+    letters.forEach((l) => { measureInk(l); if (dropped) spawn(l); });
+  };
+  const drop = () => { dropped = true; letters.forEach(spawn); };
+  const sync = () => letters.forEach((l) => {
+    if (!l.body) { l.el.style.transform = `translate(-200vw, 0)`; return; }
+    const { x, y } = l.body.position;
+    l.el.style.transform = `translate(${x - l.w / 2 - l.ox}px, ${y - l.h / 2 - l.oy}px) rotate(${l.body.angle}rad)`;
+  });
+  const setFloor = (want) => {
+    if (want === floorOn) return;
+    floorOn = want;
+    if (want) { Composite.add(engine.world, walls.floor); letters.forEach((l) => { if (l.body && l.body.position.y > H) spawn(l); }); }
+    else Composite.remove(engine.world, walls.floor);
+  };
+  const pushFromPointer = (rect) => {
+    const px = pointer.x - rect.left, py = pointer.y - rect.top;
+    if (performance.now() - pointer.moved > 100 || py < 0 || py > rect.height) return;
+    letters.forEach((l) => {
+      if (!l.body) return;
+      const dx = l.body.position.x - px, dy = l.body.position.y - py, dist = Math.hypot(dx, dy);
+      if (dist > cfg.pushRadius) return;
+      const k = (1 - dist / cfg.pushRadius) * cfg.pushForce * l.body.mass;
+      Body.applyForce(l.body, l.body.position, { x: (dx / (dist + 1) + pointer.dx * .05) * k, y: (dy / (dist + 1) + pointer.dy * .05) * k });
+    });
+  };
+  document.fonts.ready.then(build);
+  build(); sync();
+  addEventListener('resize', build);
+  track('#s-phys', (p) => {
+    prog = p;
+    if (!dropped && p > cfg.enter) drop();
+    setFloor(p < cfg.floorOff);
+  }, (v) => { on = v; });
+  gsap.ticker.add(() => {
+    if (!on || !dropped) return;
+    const g = 1 - clamp(velocity() * cfg.velGain, cfg.kickMin, cfg.kickMax);
+    engine.gravity.y += (g - engine.gravity.y) * cfg.gravityEase;
+    pushFromPointer(pin.getBoundingClientRect());
+    Engine.update(engine, cfg.stepMs);
+    sync();
+  });
+}
+
+/* ───────── 07 line drawing: orbital diagram that resolves into a V ───────── */
+function initLine() {
+  const cfg = CONFIG.line, svg = $('#orbit'), NS = 'http://www.w3.org/2000/svg', rnd = mulberry32(cfg.seed), C = 500;
+  const node = (tag, attrs, parent = svg) => { const e = document.createElementNS(NS, tag); Object.entries(attrs).forEach(([k, v]) => e.setAttribute(k, v)); parent.append(e); return e; };
+  const strokes = [], dots = [], dimmed = [];
+  const stroke = (parent, d, color, width, range, extra = {}) => { const el = node('path', { d, stroke: color, 'stroke-width': width, pathLength: 1, ...extra }, parent); strokes.push({ el, range }); return el; };
+  const orbitsG = node('g', {}), consG = node('g', {}), vG = node('g', {});
+  dimmed.push(orbitsG, consG);
+  // tick ring
+  let ring = '';
+  for (let i = 0; i < cfg.ticks; i++) {
+    const a = (i / cfg.ticks) * Math.PI * 2, r2 = i % 12 === 0 ? cfg.tickR[2] : cfg.tickR[1], cs = Math.cos(a), sn = Math.sin(a);
+    ring += `M${C + cs * cfg.tickR[0]},${C + sn * cfg.tickR[0]}L${C + cs * r2},${C + sn * r2}`;
+  }
+  stroke(orbitsG, ring, pal('white'), 1.2, cfg.tickDraw, { opacity: .55 });
+  // orbits with a planet each
+  const colors = ['cobalt', 'violet', 'magenta', 'cobalt', 'violet', 'magenta', 'lime'];
+  const planets = [];
+  for (let i = 0; i < cfg.orbits; i++) {
+    const rx = lerpR(cfg.orbitR, i / (cfg.orbits - 1)), ry = rx * lerpR(cfg.orbitRy, rnd()), rot = rnd() * 180;
+    const g = node('g', { transform: `rotate(${rot} ${C} ${C})` }, orbitsG);
+    const a = cfg.orbitDraw[0] + (i / cfg.orbits) * (cfg.orbitDraw[1] - cfg.orbitDraw[0]) * .7;
+    stroke(g, `M${C - rx},${C} a${rx},${ry} 0 1,0 ${rx * 2},0 a${rx},${ry} 0 1,0 ${-rx * 2},0`, pal(colors[i % colors.length]), 1.4, [a, a + .14]);
+    planets.push({ el: node('circle', { r: 0, fill: pal(colors[i % colors.length]) }, g), rx, ry, phase: rnd() * Math.PI * 2, speed: .6 + rnd() * 1.4, at: a + .14, size: 4 + rnd() * 5 });
+  }
+  // constellation: random stars plus stars sitting on the two arms of the V
+  const arm = (t, side) => [lerp(C + side * cfg.vHalf, C, t), lerp(cfg.vTop, cfg.vBottom, t)];
+  const vPts = [];
+  for (let k = 0; k < cfg.vStars; k++) { const t = k / (cfg.vStars - 1); vPts.push(arm(t, -1)); if (k < cfg.vStars - 1) vPts.push(arm(t, 1)); }
+  const pts = Array.from({ length: cfg.stars }, () => { const a = rnd() * Math.PI * 2, r = Math.sqrt(rnd()) * cfg.starR; return [C + Math.cos(a) * r, C + Math.sin(a) * r]; });
+  const edges = new Set();
+  pts.forEach((p, i) => pts.map((q, j) => [j, Math.hypot(p[0] - q[0], p[1] - q[1])]).filter(([j]) => j !== i).sort((a, b) => a[1] - b[1]).slice(0, cfg.neighbours)
+    .forEach(([j]) => edges.add(i < j ? `${i}-${j}` : `${j}-${i}`)));
+  [...edges].forEach((e, n) => {
+    const [i, j] = e.split('-').map(Number), a = cfg.edgeDraw[0] + (n / edges.size) * (cfg.edgeDraw[1] - cfg.edgeDraw[0] - .06);
+    stroke(consG, `M${pts[i][0]},${pts[i][1]}L${pts[j][0]},${pts[j][1]}`, pal('violet'), 1, [a, a + .06], { opacity: .8 });
+  });
+  pts.forEach((p, i) => dots.push({ el: node('circle', { cx: p[0], cy: p[1], r: 0, fill: pal('white') }, consG), size: 1.6 + rnd() * 2.2, at: cfg.starIn[0] + (i / pts.length) * (cfg.starIn[1] - cfg.starIn[0]) }));
+  const left = [arm(0, -1), arm(1, -1)], right = [arm(0, 1), arm(1, 1)];
+  stroke(vG, `M${left[0]}L${left[1]}L${right[0]}`, pal('lime'), 1, cfg.vEdge, { opacity: .6 });
+  vPts.forEach((p, i) => dots.push({ el: node('circle', { cx: p[0], cy: p[1], r: 0, fill: pal('lime') }, vG), size: 5, at: cfg.vEdge[0] + (i / vPts.length) * (cfg.vEdge[1] - cfg.vEdge[0]) }));
+  stroke(vG, `M${left[0]}L${left[1]}L${right[0]}`, pal('lime'), 22, cfg.vDraw, { class: 'vmark', 'stroke-linejoin': 'miter' });
+
+  const render = (p) => {
+    strokes.forEach((s) => { s.el.style.strokeDashoffset = 1 - (reduce ? 1 : smooth(segR(p, s.range))); });
+    dots.forEach((d) => d.el.setAttribute('r', (d.size * (reduce ? 1 : smooth(seg(p, d.at, d.at + .04)))).toFixed(2)));
+    planets.forEach((pl) => {
+      const a = pl.phase + (reduce ? 0 : p * pl.speed * Math.PI * 2);
+      pl.el.setAttribute('cx', C + Math.cos(a) * pl.rx); pl.el.setAttribute('cy', C + Math.sin(a) * pl.ry);
+      pl.el.setAttribute('r', (pl.size * (reduce ? 1 : smooth(seg(p, pl.at, pl.at + .04)))).toFixed(2));
+    });
+    orbitsG.setAttribute('transform', `rotate(${reduce ? 0 : p * cfg.spin} ${C} ${C})`);
+    const dim = reduce ? 0 : smooth(segR(p, cfg.dim));
+    dimmed.forEach((g) => { g.style.opacity = lerp(1, cfg.dimTo, dim); });
+  };
+  track('#s-line', render);
+}
+
+/* ───────── 08 finale ───────── */
+function initFinale(stage) {
+  const cfg = CONFIG.finale, rc = CONFIG.finaleRay, chars = $$('#fin-title .ch'), copy = $('#fin-copy');
+  const vec = chars.map(() => ({ x: rand(-220, 220), y: rand(-260, 260), r: rand(-70, 70) }));
+  const mode = createRaymarch(stage, $('#fin-pin'), (u, time, rect) => {
+    const t = reduce ? 4 : time;
+    u.uTime.value = t; u.uSpread.value = rc.spread + rc.spreadWave * (.5 + .5 * Math.sin(t * .3)); u.uBlend.value = rc.blend;
+    u.uOrbit.value = t * rc.spin + tilt.x * CONFIG.raymarch.orbitTilt; u.uHeight.value = CONFIG.raymarch.heightBase + tilt.y * CONFIG.raymarch.heightTilt;
+    u.uDist.value = rc.dist; u.uGlow.value = rc.glow;
+    pointerLight(u.uLight.value, t, rect);
+  });
+  track('#s-finale', (p) => {
+    const k = reduce ? 0 : 1 - smooth(segR(p, cfg.titleIn));
+    chars.forEach((c, i) => { const v = vec[i]; c.style.transform = `translate(${v.x * k}px, ${v.y * k}px) rotate(${v.r * k}deg)`; c.style.opacity = 1 - k; });
+    const c = reduce ? 1 : segR(p, cfg.copyIn);
+    copy.style.opacity = c; copy.style.transform = `translateY(${(1 - c) * 40}px)`;
+    copy.style.pointerEvents = c > .5 ? 'auto' : 'none';
+    stage.markDirty();
+  }, (on) => { mode.on = on; stage.markDirty(); });
+
+  const magnet = $('#magnet'), label = magnet.querySelector('span');
+  magnet.addEventListener('pointermove', (e) => {
+    const r = magnet.getBoundingClientRect(), dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2);
+    gsap.to(magnet, { x: dx * .45, y: dy * .45, duration: .4, ease: 'power3.out' });
+    gsap.to(label, { x: dx * .2, y: dy * .2, duration: .4, ease: 'power3.out' });
+  });
+  magnet.addEventListener('pointerleave', () => gsap.to([magnet, label], { x: 0, y: 0, duration: .8, ease: 'elastic.out(1, .4)' }));
+}
+
+/* ───────── boot ───────── */
+const stage = createStage($('#gl'));
+initHero(stage);
+initLiquid();
+initSculpture(stage);
+initGallery(stage);
+initFlight();
+initPhysics();
+initLine();
+initFinale(stage);
+// Registered last so every scene has updated its state before the shared renderer draws.
+gsap.ticker.add((time, deltaMs) => stage.frame(time, deltaMs / 1000));
+</script>
+</body>
+</html>
