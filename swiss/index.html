@@ -1,0 +1,750 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SWISS</title>
+<meta name="description" content="스위스 타이포그래피 양식을 스크롤로 조립하는 인터랙션 연습.">
+<meta property="og:title" content="SWISS">
+<meta property="og:image" content="https://ahttoh.github.io/design-lab/assets/thumb/swiss.webp">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<style>
+  :root {
+    --paper: #ffffff; --ink: #000000; --signal: #ff2a00;
+    --rule: rgba(0, 0, 0, .16);
+    --scroll-stretch: 1.5;
+    --m: clamp(16px, 4vw, 64px);
+    --latin: 'Archivo', 'Pretendard Variable', sans-serif;
+    --hangul: 'Pretendard Variable', 'Archivo', sans-serif;
+    --t-note: clamp(12px, .68rem + .22vw, 15px);
+    --t-sub: clamp(20px, .9rem + 1.7vw, 46px);
+    --t-lock: clamp(28px, 1rem + 3.4vw, 76px);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--hangul); overflow-x: clip; }
+  body { -webkit-font-smoothing: antialiased; }
+  ::selection { background: var(--signal); color: var(--paper); }
+
+  .bar { position: fixed; left: 0; top: 0; z-index: 20; width: 100%; height: 3px; background: var(--signal); transform-origin: 0 50%; transform: scaleX(0); pointer-events: none; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; margin: 0; }
+
+  .scene { position: relative; height: calc(var(--len) * var(--scroll-stretch)); }
+  .pin { position: sticky; top: 0; height: 100vh; overflow: hidden; background: var(--paper); }
+  .stage { position: absolute; inset: 0; width: 100%; height: 100%; display: block; overflow: visible; }
+
+  /* svg vocabulary */
+  .hair path { fill: none; stroke: var(--rule); stroke-width: 1; stroke-dasharray: 1; stroke-dashoffset: 1; }
+  .ink { fill: var(--ink); }
+  .sig { fill: var(--signal); }
+  .lat { font-family: var(--latin); font-weight: 900; }
+  .han { font-family: var(--hangul); font-weight: 900; }
+  .ring { fill: none; stroke: var(--ink); }
+
+  /* html blocks positioned on the lattice */
+  .blk { position: absolute; left: 0; top: 0; margin: 0; white-space: nowrap; will-change: transform, opacity; }
+  .sub { font-size: var(--t-sub); font-weight: 800; line-height: 1.05; letter-spacing: -.035em; }
+  .note { font-size: var(--t-note); font-weight: 500; line-height: 1.45; letter-spacing: -.005em; }
+  .cue { position: absolute; right: var(--m); bottom: max(6px, calc(var(--m) / 2 - .7em)); margin: 0; display: flex; align-items: center; gap: 10px; font-size: var(--t-note); font-weight: 600; }
+  .cue::before { content: ''; width: 28px; height: 2px; background: var(--signal); transform-origin: 0 50%; animation: cue 1.6s cubic-bezier(.7, 0, .2, 1) infinite; }
+  @keyframes cue { 0% { transform: scaleX(0); } 55% { transform: scaleX(1); } 100% { transform: scaleX(1); opacity: 0; } }
+
+  /* kinetic */
+  .kw-layer { position: absolute; inset: 0; }
+  .kw { position: absolute; left: 0; top: 0; font-family: var(--latin); font-weight: 900; line-height: 1; letter-spacing: -.035em; white-space: pre; transform-origin: 0 0; will-change: transform, opacity; }
+  .kw-ko { font-size: var(--t-sub); font-weight: 800; letter-spacing: -.035em; line-height: 1.1; white-space: normal; max-width: calc(100vw - 2 * var(--m)); }
+  .kw-by { font-size: var(--t-note); font-weight: 500; }
+
+  /* circles */
+  .c-type { position: absolute; left: var(--m); top: var(--m); will-change: opacity, transform; }
+  .c-title { margin: 0; font-size: clamp(48px, 1rem + 7.4vw, 150px); font-weight: 900; line-height: .92; letter-spacing: -.05em; }
+  .c-sub { margin: 1.1em 0 0; font-family: var(--latin); font-size: var(--t-note); font-weight: 600; }
+
+  /* specimen */
+  .sp { position: absolute; inset: var(--m); display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); grid-template-rows: auto auto 1fr auto; }
+  .sp-word { grid-column: 1 / -1; margin: 0; font-family: var(--latin); line-height: .88; letter-spacing: -.03em; white-space: nowrap; padding-bottom: .06em; border-bottom: 1px solid var(--ink); will-change: font-variation-settings; }
+  .sp-axes { grid-column: 1 / 5; grid-row: 2; display: grid; gap: 14px; padding-top: 22px; }
+  .ax { display: grid; grid-template-columns: 3.2em 1fr; align-items: center; font-size: var(--t-note); font-weight: 600; }
+  .ax-track { position: relative; height: 1px; background: var(--ink); }
+  .ax-track i { position: absolute; top: -6px; left: calc(var(--k, 0) * 100%); width: 13px; height: 13px; margin-left: -6.5px; background: var(--signal); }
+  .sp-fall { grid-column: 6 / -1; grid-row: 2 / 4; align-self: end; display: grid; justify-items: start; }
+  .sp-fall span { font-family: var(--latin); line-height: .95; letter-spacing: -.02em; white-space: nowrap; border-bottom: 1px solid var(--rule); }
+  .sp-han { grid-column: 1 / -1; grid-row: 4; margin: 18px 0 0; line-height: 1.1; letter-spacing: -.02em; white-space: nowrap; }
+  .sp-probe { position: absolute; left: -9999px; top: 0; visibility: hidden; white-space: nowrap; line-height: 1; }
+
+  /* finale */
+  .lock { font-size: var(--t-lock); font-weight: 900; line-height: 1; letter-spacing: -.045em; }
+  .disc-pos { position: absolute; left: 0; top: 0; will-change: transform, opacity; }
+  .magnet { display: grid; place-items: center; width: 100%; height: 100%; border-radius: 50%; background: var(--signal); color: var(--paper); font-size: clamp(18px, .9rem + .8vw, 30px); font-weight: 800; letter-spacing: -.02em; text-decoration: none; will-change: transform; }
+  .magnet span { pointer-events: none; will-change: transform; }
+  .magnet:focus-visible { outline: 3px solid var(--ink); outline-offset: 8px; }
+  .disc-pos:focus-within { opacity: 1 !important; scale: 1 !important; }
+
+  @media (orientation: portrait) {
+    .sp-axes { grid-column: 1 / -1; grid-row: 2; }
+    .sp-fall { grid-column: 1 / -1; grid-row: 3; align-self: center; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .scene { height: auto; }
+    .pin { position: relative; }
+    .bar, .cue { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="bar" id="bar" aria-hidden="true"></div>
+
+<main>
+  <section class="scene" id="poster" style="--len:1000vh">
+    <div class="pin">
+      <h1 class="sr">SWISS</h1>
+      <svg class="stage" id="poster-svg" aria-hidden="true"></svg>
+      <p class="blk sub" data-id="ko">스위스 타이포그래피</p>
+      <p class="blk note" data-id="note">국제 타이포그래피 양식<br>바젤과 취리히, 1950년대</p>
+      <p class="cue" id="cue">아래로</p>
+    </div>
+  </section>
+
+  <section class="scene" id="grid" style="--len:1400vh">
+    <div class="pin">
+      <h2 class="sr">격자</h2>
+      <svg class="stage" id="grid-svg" aria-hidden="true"></svg>
+    </div>
+  </section>
+
+  <section class="scene" id="kinetic" style="--len:1100vh">
+    <div class="pin">
+      <h2 class="sr">The grid system is an aid, not a guarantee.</h2>
+      <svg class="stage" id="kinetic-svg" aria-hidden="true"></svg>
+      <div class="kw-layer" id="kw-layer" aria-hidden="true"></div>
+      <p class="blk kw-ko" id="kw-ko">격자는 도구일 뿐 보증이 아니다</p>
+      <p class="blk kw-by" id="kw-by">요제프 뮐러브로크만</p>
+    </div>
+  </section>
+
+  <section class="scene" id="circles" style="--len:1300vh">
+    <div class="pin">
+      <svg class="stage" id="circles-svg" aria-hidden="true"></svg>
+      <div class="c-type" id="c-type">
+        <h2 class="c-title">원과<br>막대</h2>
+        <p class="c-sub">Kreis und Balken</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="scene" id="specimen" style="--len:1100vh">
+    <div class="pin">
+      <div class="sp">
+        <h2 class="sp-word" id="sp-word">Grotesk</h2>
+        <div class="sp-axes" aria-hidden="true">
+          <div class="ax"><span>굵기</span><span class="ax-track"><i id="ax-wght"></i></span></div>
+          <div class="ax"><span>너비</span><span class="ax-track"><i id="ax-wdth"></i></span></div>
+        </div>
+        <div class="sp-fall" id="sp-fall" aria-hidden="true"><span>Archivo</span><span>Archivo</span><span>Archivo</span><span>Archivo</span><span>Archivo</span></div>
+        <p class="sp-han" id="sp-han">가나다라마바사아자차카타파하</p>
+      </div>
+      <span class="sp-probe" id="sp-probe" aria-hidden="true"></span>
+    </div>
+  </section>
+
+  <section class="scene" id="finale" style="--len:1000vh">
+    <div class="pin">
+      <svg class="stage" id="finale-svg" aria-hidden="true"></svg>
+      <h2 class="blk lock" data-id="ko">스위스 타이포그래피</h2>
+      <p class="blk note" data-id="note">국제 타이포그래피 양식</p>
+      <div class="disc-pos" id="disc-pos"><a class="magnet" id="magnet" href="../"><span>목록으로</span></a></div>
+    </div>
+  </section>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/lenis@1.1.13/dist/lenis.min.js"></script>
+<script type="module">
+/* ───────── config ─────────
+   Lattice units: x in twelfths of the sheet width (u), y in twelfths of the sheet height (v).
+   A pose entry is {id, x, y, w, h} or {run:[ids], ...} for letters set as one line. sq:true makes h equal to w in pixels.
+   L = landscape frames, P = portrait frames. moves[i] = scroll window of the transition from frame i to i+1. */
+const CONFIG = {
+  lenisLerp: 0.08,
+  base: 200,
+  runGap: 0.05,
+  lattice: 12,
+  drawnCols: { landscape: 12, portrait: 6 },
+  margin: { vw: 0.04, min: 16, max: 64 },
+  fonts: { latin: '900 200px Archivo', hangul: '900 200px "Pretendard Variable"' },
+  spring: { gain: 0.02, stiffness: 0.085, damping: 0.8, max: 1 },
+
+  poster: {
+    glyphs: [['s1', 'S'], ['w', 'W'], ['i', 'I'], ['s2', 'S'], ['s3', 'S']],
+    order: ['s1', 'w', 'i', 's2', 's3', 'red', 'ko', 'note'],
+    moves: [[0.1, 0.24], [0.32, 0.46], [0.54, 0.68], [0.76, 0.9]], spread: 0.35,
+    skewDeg: 9, cueOut: [0, 0.03], gridAlpha: 0.9,
+    intro: { dur: 1.9, stagger: 0.07, window: 0.5, riseV: 2.5 },
+    L: [
+      [{ run: ['s1', 'w', 'i', 's2', 's3'], x: 0, y: 4.6, w: 12, h: 7.4 }, { id: 'red', x: 9, y: 0, w: 3, h: 3.6 }, { id: 'ko', x: 0, y: 0 }, { id: 'note', x: 4.5, y: 0 }],
+      [{ id: 's1', x: 0, y: 1, w: 4, h: 3 }, { id: 'w', x: 1.8, y: 3.25, w: 4, h: 3 }, { id: 'i', x: 4.4, y: 5.5, w: 4, h: 3 }, { id: 's2', x: 5.3, y: 7.75, w: 4, h: 3 }, { id: 's3', x: 7.1, y: 9, w: 4, h: 3 },
+        { id: 'red', x: 10, y: 0, w: 2, sq: true }, { id: 'ko', x: 4, y: 0 }, { id: 'note', x: 4, y: 0.9 }],
+      [{ run: ['s1', 'w', 'i', 's2', 's3'], x: 0, y: 0, w: 1.8, h: 12, r: -90 }, { id: 'red', x: 3, y: 0, w: 9, h: 7 }, { id: 'ko', x: 3, y: 7.5 }, { id: 'note', x: 3, y: 8.5 }],
+      [{ id: 's1', x: 0, y: 0, w: 7, h: 12 }, { run: ['w', 'i', 's2', 's3'], x: 7.4, y: 10.2, w: 4.6, h: 1.8 }, { id: 'red', x: 7.4, y: 0, w: 4.6, sq: true }, { id: 'ko', x: 7.4, y: 7.9 }, { id: 'note', x: 7.4, y: 8.8 }],
+      [{ run: ['s1', 'w', 'i', 's2', 's3'], x: 0, y: 0, w: 12, h: 6 }, { id: 'red', x: 10.5, y: 10.5, w: 1.5, h: 1.5 }, { id: 'ko', x: 0, y: 7 }, { id: 'note', x: 6, y: 7 }],
+    ],
+    P: [
+      [{ run: ['s1', 'w', 'i'], x: 0, y: 6, w: 12, h: 2.1 }, { run: ['s2', 's3'], x: 0, y: 8.4, w: 12, h: 2.1 }, { id: 'red', x: 8, y: 0, w: 4, sq: true }, { id: 'ko', x: 0, y: 0 }, { id: 'note', x: 0, y: 0.7 }],
+      [{ id: 's1', x: 0, y: 1.1, w: 6, h: 2 }, { id: 'w', x: 2, y: 3.2, w: 8, h: 2 }, { id: 'i', x: 5.5, y: 5.3, w: 3, h: 2 }, { id: 's2', x: 6.2, y: 7.4, w: 6, h: 2 }, { id: 's3', x: 8, y: 9.5, w: 4, h: 2 },
+        { id: 'red', x: 9, y: 0, w: 3, sq: true }, { id: 'ko', x: 0, y: 11.3 }, { id: 'note', x: 0, y: 0 }],
+      [{ run: ['s1', 'w', 'i', 's2', 's3'], x: 0, y: 0, w: 5, h: 12, r: -90 }, { id: 'red', x: 5.8, y: 0, w: 6.2, h: 6.5 }, { id: 'ko', x: 5.8, y: 7 }, { id: 'note', x: 5.8, y: 7.7 }],
+      [{ id: 's1', x: 0, y: 0, w: 12, h: 7 }, { run: ['w', 'i', 's2', 's3'], x: 0, y: 9.6, w: 9, h: 2.4 }, { id: 'red', x: 9.6, y: 9.6, w: 2.4, sq: true }, { id: 'ko', x: 0, y: 7.5 }, { id: 'note', x: 0, y: 8.3 }],
+      [{ run: ['s1', 'w', 'i'], x: 0, y: 0, w: 12, h: 2.1 }, { run: ['s2', 's3'], x: 0, y: 2.4, w: 12, h: 2.1 }, { id: 'red', x: 10, y: 10, w: 2, sq: true }, { id: 'ko', x: 0, y: 5.2 }, { id: 'note', x: 0, y: 5.9 }],
+    ],
+    still: 0,
+  },
+
+  grid: {
+    texts: [['gA', 'Grid', 'lat', 'latin'], ['gB', '격자', 'han', 'hangul']],
+    order: ['r1', 'b1', 'gA', 'gB', 'g1', 'g2', 'g3', 'r2'],
+    moves: [[0.03, 0.12], [0.27, 0.37], [0.44, 0.54], [0.61, 0.71], [0.78, 0.88]], spread: 0.4,
+    skewDeg: 7,
+    greek: { max: 110, pitch: { landscape: 8, portrait: 6 }, thick: { landscape: 3, portrait: 2 }, para: 7, seed: 11 },
+    L: [
+      [{ id: 'gA', x: 0, y: 0, w: 8, h: 3.4 }, { id: 'gB', x: 9, y: 0, w: 3, h: 1.8 }, { id: 'r1', x: 0, y: 4.5, w: 5, h: 7.5 }, { id: 'b1', x: 5.5, y: 4.5, w: 0.1, h: 7.5 },
+        { id: 'g1', x: 6, y: 4.5, w: 2.8, h: 5 }, { id: 'g2', x: 9.2, y: 4.5, w: 2.8, h: 3.2 }, { id: 'g3', x: 9.2, y: 8.4, w: 2.8, h: 3.6 }, { id: 'r2', x: 6, y: 10.8, w: 1, h: 1.2 }],
+      [{ id: 'r1', x: 0, y: 0, w: 7, h: 12 }, { id: 'gA', x: 0.5, y: 8.5, w: 6, h: 3 }, { id: 'gB', x: 8, y: 0, w: 4, h: 2.2 }, { id: 'b1', x: 7.5, y: 0, w: 0.1, h: 12 },
+        { id: 'g1', x: 8, y: 3, w: 4, h: 3 }, { id: 'g2', x: 8, y: 6.6, w: 1.9, h: 5.4 }, { id: 'g3', x: 10.1, y: 6.6, w: 1.9, h: 5.4 }, { id: 'r2', x: 11.2, y: 2.6, w: 0.8, h: 0.3 }],
+      [{ id: 'gA', x: 0, y: 0, w: 12, h: 4.6 }, { id: 'gB', x: 0, y: 5.3, w: 2.6, h: 1.4 }, { id: 'b1', x: 0, y: 4.95, w: 12, h: 0.05 }, { id: 'r1', x: 3, y: 5.6, w: 3, h: 6.4 },
+        { id: 'g1', x: 6.3, y: 5.6, w: 1.8, h: 6.4 }, { id: 'g2', x: 8.3, y: 5.6, w: 1.8, h: 6.4 }, { id: 'g3', x: 10.2, y: 5.6, w: 1.8, h: 4 }, { id: 'r2', x: 10.2, y: 10.2, w: 1.8, h: 1.8 }],
+      [{ id: 'gA', x: 0, y: 0, w: 2.4, h: 12, r: -90 }, { id: 'gB', x: 3.2, y: 0, w: 3, h: 1.6 }, { id: 'b1', x: 2.8, y: 0, w: 0.1, h: 12 }, { id: 'r1', x: 3.2, y: 2.2, w: 4, sq: true },
+        { id: 'g1', x: 7.6, y: 2.2, w: 2, h: 6.5 }, { id: 'g2', x: 9.9, y: 2.2, w: 2.1, h: 3 }, { id: 'g3', x: 3.2, y: 9.3, w: 4, h: 2.7 }, { id: 'r2', x: 9.9, y: 5.7, w: 2.1, h: 0.4 }],
+      [{ id: 'gA', x: 3, y: 8, w: 9, h: 4 }, { id: 'gB', x: 0, y: 0, w: 2.8, h: 1.5 }, { id: 'r1', x: 0, y: 2.2, w: 2.6, sq: true }, { id: 'b1', x: 0, y: 7.6, w: 12, h: 0.05 },
+        { id: 'g1', x: 3, y: 0, w: 2.8, h: 7 }, { id: 'g2', x: 6.1, y: 0, w: 2.8, h: 5 }, { id: 'g3', x: 9.2, y: 0, w: 2.8, h: 6.4 }, { id: 'r2', x: 0, y: 10.8, w: 1.2, h: 1.2 }],
+    ],
+    P: [
+      [{ id: 'gA', x: 0, y: 0, w: 12, h: 2.6 }, { id: 'gB', x: 0, y: 3, w: 5, h: 1 }, { id: 'r1', x: 0, y: 4.4, w: 6, h: 4.6 }, { id: 'b1', x: 6.4, y: 4.4, w: 0.2, h: 7.6 },
+        { id: 'g1', x: 7, y: 4.4, w: 5, h: 3.4 }, { id: 'g2', x: 7, y: 8.2, w: 5, h: 3.8 }, { id: 'g3', x: 0, y: 9.4, w: 6, h: 2.6 }, { id: 'r2', x: 10, y: 3, w: 2, h: 0.8 }],
+      [{ id: 'r1', x: 0, y: 0, w: 12, h: 6.5 }, { id: 'gA', x: 0.6, y: 3.8, w: 10.8, h: 2.2 }, { id: 'gB', x: 0, y: 7, w: 6, h: 1.2 }, { id: 'b1', x: 0, y: 8.5, w: 12, h: 0.05 },
+        { id: 'g1', x: 0, y: 9, w: 5.8, h: 3 }, { id: 'g2', x: 6.2, y: 9, w: 5.8, h: 3 }, { id: 'g3', x: 6.2, y: 7, w: 3.8, h: 1.2 }, { id: 'r2', x: 10.4, y: 7, w: 1.6, h: 1.2 }],
+      [{ id: 'gA', x: 0, y: 0, w: 12, h: 2.4 }, { id: 'b1', x: 0, y: 2.8, w: 12, h: 0.05 }, { id: 'gB', x: 0, y: 3.2, w: 6, h: 1.1 }, { id: 'r1', x: 0, y: 4.8, w: 4, h: 7.2 },
+        { id: 'g1', x: 4.4, y: 4.8, w: 3.6, h: 7.2 }, { id: 'g2', x: 8.4, y: 4.8, w: 3.6, h: 4.6 }, { id: 'g3', x: 8.4, y: 9.8, w: 3.6, h: 1 }, { id: 'r2', x: 8.4, y: 11, w: 3.6, h: 1 }],
+      [{ id: 'gA', x: 0, y: 0, w: 3.4, h: 12, r: -90 }, { id: 'gB', x: 4.2, y: 0, w: 7.8, h: 1.3 }, { id: 'b1', x: 3.8, y: 0, w: 0.15, h: 12 }, { id: 'r1', x: 4.2, y: 2, w: 7.8, sq: true },
+        { id: 'g1', x: 4.2, y: 6, w: 3.7, h: 6 }, { id: 'g2', x: 8.3, y: 6, w: 3.7, h: 3.6 }, { id: 'g3', x: 8.3, y: 10, w: 3.7, h: 2 }, { id: 'r2', x: 0, y: 0, w: 3.4, sq: true }],
+      [{ id: 'gA', x: 0, y: 9, w: 12, h: 3 }, { id: 'gB', x: 0, y: 0, w: 6, h: 1.2 }, { id: 'r1', x: 8, y: 0, w: 4, sq: true }, { id: 'b1', x: 0, y: 8.5, w: 12, h: 0.05 },
+        { id: 'g1', x: 0, y: 2, w: 5.8, h: 6 }, { id: 'g2', x: 6.2, y: 2.6, w: 5.8, h: 3 }, { id: 'g3', x: 6.2, y: 6, w: 5.8, h: 2 }, { id: 'r2', x: 0, y: 1.5, w: 1, h: 0.2 }],
+    ],
+    still: 1,
+  },
+
+  kinetic: {
+    words: ['The', 'grid', 'system', 'is', 'an', 'aid,', 'not', 'a', 'guarantee.'],
+    leading: 0.9,
+    L: { set: [[0, 1], [2, 3, 4], [5, 6, 7], [8]], block: [[0, 1, 2], [3, 4, 5, 6, 7]], blockW: 0.46, blockH: 0.3, setAlign: 0 },
+    P: { set: [[0], [1], [2], [3, 4], [5], [6, 7], [8]], block: [[0, 1], [2, 3, 4], [5, 6, 7]], blockW: 0.62, blockH: 0.3, setAlign: 0.5 },
+    snap: [0.05, 0.52], snapDur: 0.1, reset: [0.6, 0.74], resetSpread: 0.4, trans: [0.76, 0.84],
+    chaosScale: [0.28, 0.95], chaosRot: [0, 90, -90, 0, 0], seed: 7, chaosCols: 10, chaosRows: 11,
+    faint: 0.16, wobbleDeg: 30, wobblePx: 90, skewDeg: 12, gridAlpha: 0.7,
+    still: 1,
+  },
+
+  circles: {
+    square: { landscapeH: 0.92, landscapeW: 0.6, portraitScale: 1.3 },
+    ringPx: 1.25, barStartCol: { landscape: 3, portrait: -1 },
+    rings: [0.48, 0.4, 0.32, 0.24], ringArc: 0.78, ringTurn: 140, ringDraw: [0.3, 1], ringSpread: 0.4,
+    tilt: -30, assemble: [0.52, 0.72], assembleSpread: 0.35, velDeg: 6,
+    bars: [{ y: 0.34, t: 0.05 }, { y: 0.5, t: 0.018 }, { y: 0.66, t: 0.05 }], barsIn: [0.12, 0.36], barsSpread: 0.4, barTravel: 4,
+    dots: [{ r: 0.14, to: [0.3, 0.5] }, { r: 0.1, to: [0.62, 0.215] }, { r: 0.075, to: [0.8, 0.76] }, { r: 0.06, to: [0.14, 0.2] }, { r: 0.045, to: [0.9, 0.215] }, { r: 0.035, to: [0.52, 0.8] }],
+    pre: { scale: 0.55, gap: 0.018 }, popIn: [0.3, 0.5], popSpread: 0.5,
+    disc: { r: 0.09, to: [0.74, 0.5], fromY: -0.4 }, discIn: [0.76, 0.9],
+    titleIn: [0.2, 0.9], titleRisePx: 60,
+    still: 1,
+  },
+
+  specimen: {
+    path: [[0, 100, 100], [0.06, 100, 100], [0.26, 900, 100], [0.34, 900, 125], [0.48, 900, 62], [0.6, 300, 62], [0.72, 300, 125], [0.84, 800, 100], [1, 800, 100]],
+    hanPath: [[0, 100], [0.08, 100], [0.3, 900], [0.56, 200], [0.84, 700], [1, 700]],
+    axes: { wght: [100, 900], wdth: [62, 125] },
+    fallSizes: [1, 0.74, 0.54, 0.4, 0.3], lag: 0.035, velWdth: 30,
+    fadeIn: [0.4, 1], wordMaxH: 0.34, fallMaxH: { landscape: 0.42, portrait: 0.4 },
+    still: 1,
+  },
+
+  finale: {
+    L: [{ run: ['f1', 'f2', 'f3', 'f4', 'f5'], x: 0, y: 5.8, w: 12, h: 6.2 }, { id: 'bar', x: 0, y: 5.1, w: 12, h: 0.1 }, { id: 'ko', x: 0, y: 0 }, { id: 'note', x: 0, y: 1.6 }],
+    P: [{ run: ['f1', 'f2', 'f3'], x: 0, y: 7.2, w: 12, h: 2.1 }, { run: ['f4', 'f5'], x: 0, y: 9.6, w: 12, h: 2.1 }, { id: 'bar', x: 0, y: 6.6, w: 12, h: 0.06 }, { id: 'ko', x: 0, y: 0 }, { id: 'note', x: 0, y: 1 }],
+    discL: { x: 9.6, y: 2.4, ru: 1.8, rv: 2.4 }, discP: { x: 8.2, y: 3.3, ru: 3.6, rv: 1.6 },
+    drop: [0.03, 0.34], dropSpread: 0.5, dropRot: 40, barIn: [0.32, 0.42], koIn: [0.38, 0.48], discIn: [0.46, 0.58], gridOut: [0.72, 0.88], gridKeep: 0.35, barGrow: [0.72, 0.92], barGrowTo: 4,
+    magnet: { pull: 0.35, label: 0.18 },
+    still: 1,
+  },
+};
+
+/* ───────── utils ───────── */
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const seg = (p, a, b) => clamp((p - a) / (b - a), 0, 1);
+const segR = (p, r) => seg(p, r[0], r[1]);
+const smooth = (x) => x * x * (3 - 2 * x);
+const inOut = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
+const outCubic = (x) => 1 - Math.pow(1 - x, 3);
+const backOut = (x) => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2); };
+const lerp = (a, b, t) => a + (b - a) * t;
+const NS = 'http://www.w3.org/2000/svg';
+function svgEl(tag, attrs, parent) {
+  const el = document.createElementNS(NS, tag);
+  for (const k in attrs) el.setAttribute(k, attrs[k]);
+  if (parent) parent.appendChild(el);
+  return el;
+}
+function mulberry32(a) {
+  return () => { a |= 0; a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+}
+const token = (name) => {
+  const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  if (!/^#[0-9a-f]{6}$/i.test(v)) throw new Error(`colour token ${name} must be a 6-digit hex, got "${v}"`);
+  return [1, 3, 5].map((i) => parseInt(v.slice(i, i + 2), 16));
+};
+
+/* ───────── scroll engine ───────── */
+gsap.registerPlugin(ScrollTrigger);
+const lenis = reduce ? null : new Lenis({ lerp: CONFIG.lenisLerp });
+if (lenis) { lenis.on('scroll', ScrollTrigger.update); gsap.ticker.add((t) => lenis.raf(t * 1000)); gsap.ticker.lagSmoothing(0); }
+
+/** Spring on scroll velocity: overshoots and settles back, so fast scrolling leaves a visible shear. */
+const spring = { x: 0, v: 0 };
+if (lenis) gsap.ticker.add(() => {
+  const c = CONFIG.spring, target = clamp(lenis.velocity * c.gain, -c.max, c.max);
+  spring.v = (spring.v + (target - spring.x) * c.stiffness) * c.damping;
+  spring.x += spring.v;
+});
+
+/** Registers a scene. p = pinned progress, e = entry progress while the section slides up into view.
+    Motion: visible scenes redraw every tick for the spring. Reduced: one still with the entry complete. */
+function mountScene(sel, scene, still) {
+  const el = $(sel);
+  let p = reduce ? still : 0, e = reduce ? 1 : 0, visible = false;
+  const draw = () => scene.render(p, e);
+  scene.layout(); draw();
+  addEventListener('resize', () => { scene.layout(); draw(); });
+  if (reduce) return;
+  ScrollTrigger.create({ trigger: el, start: 'top top', end: 'bottom bottom', onUpdate: (s) => { p = s.progress; } });
+  ScrollTrigger.create({ trigger: el, start: 'top bottom', end: 'top top', onUpdate: (s) => { e = s.progress; } });
+  ScrollTrigger.create({ trigger: el, start: 'top bottom', end: 'bottom top', onToggle: (s) => { visible = s.isActive; } });
+  gsap.ticker.add(() => { if (visible) draw(); });
+}
+
+if (!reduce) {
+  const bar = $('#bar');
+  ScrollTrigger.create({ start: 0, end: 'max', onUpdate: (s) => { bar.style.transform = `scaleX(${s.progress})`; } });
+}
+
+/* ───────── lattice + measuring ───────── */
+function lattice(el) {
+  const W = el.clientWidth, H = el.clientHeight, c = CONFIG.margin, n = CONFIG.lattice;
+  const m = clamp(W * c.vw, c.min, c.max);
+  return { W, H, m, x0: m, y0: m, sw: W - 2 * m, sh: H - 2 * m, u: (W - 2 * m) / n, v: (H - 2 * m) / n, portrait: H > W };
+}
+const cell = (g, e) => ({ x: g.x0 + e.x * g.u, y: g.y0 + e.y * g.v, w: e.w * g.u, h: e.sq ? e.w * g.u : e.h * g.v });
+
+const mctx = document.createElement('canvas').getContext('2d');
+/** Ink box of a string at CONFIG.base px: left edge x, width, ascent above and descent below the baseline. */
+function ink(str, font) {
+  mctx.font = font;
+  const m = mctx.measureText(str);
+  return { ix: -m.actualBoundingBoxLeft, iw: m.actualBoundingBoxLeft + m.actualBoundingBoxRight, asc: m.actualBoundingBoxAscent, desc: m.actualBoundingBoxDescent };
+}
+
+/** Hairline grid that can draw itself line by line. */
+function createGridLines(parent) {
+  const group = svgEl('g', { class: 'hair' }, parent);
+  let lines = [];
+  return {
+    layout(g) {
+      group.replaceChildren();
+      const cols = g.portrait ? CONFIG.drawnCols.portrait : CONFIG.drawnCols.landscape;
+      const xs = Array.from({ length: cols + 1 }, (_, i) => g.x0 + (i * g.sw) / cols);
+      const ys = Array.from({ length: CONFIG.lattice + 1 }, (_, j) => g.y0 + j * g.v);
+      lines = [...xs.map((x) => svgEl('path', { d: `M${x} 0V${g.H}`, pathLength: 1 }, group)), ...ys.map((y) => svgEl('path', { d: `M0 ${y}H${g.W}`, pathLength: 1 }, group))];
+    },
+    draw(k, spread = 0.5) {
+      const n = lines.length - 1;
+      lines.forEach((l, i) => { const a = (spread * i) / n; l.style.strokeDashoffset = 1 - smooth(seg(k, a, a + 1 - spread)); });
+    },
+    fade(o) { group.style.opacity = o; },
+  };
+}
+
+/* ───────── pose engine: resolve lattice frames to pixels, interpolate between them ───────── */
+function textItem(parent, str, cls, fontKey) {
+  const node = svgEl('text', { class: cls, 'font-size': CONFIG.base, x: 0, y: 0 }, parent);
+  node.textContent = str;
+  return { kind: 'text', node, str, font: CONFIG.fonts[fontKey], m: null };
+}
+const measureItems = (reg) => Object.values(reg).forEach((it) => { if (it.kind === 'text') it.m = ink(it.str, it.font); });
+
+/** Letters set as one line inside a box: flush left, sitting on the box bottom (or reading upward when rotated -90). */
+function placeRun(ids, reg, b, r, o) {
+  const items = ids.map((id) => reg[id]);
+  const asc = Math.max(...items.map((it) => it.m.asc)), desc = Math.max(...items.map((it) => it.m.desc));
+  const gap = CONFIG.runGap * CONFIG.base;
+  const len = items.reduce((s, it) => s + it.m.iw, 0) + gap * (items.length - 1);
+  const vertical = r !== 0;
+  const s = Math.min((vertical ? b.w : b.h) / (asc + desc), (vertical ? b.h : b.w) / len);
+  const out = {};
+  let off = 0;
+  items.forEach((it, j) => {
+    out[ids[j]] = vertical
+      ? { ax: b.x + b.w - desc * s, ay: b.y + b.h - off * s, r, s, o }
+      : { ax: b.x + off * s, ay: b.y + b.h - desc * s, r, s, o };
+    off += it.m.iw + gap;
+  });
+  return out;
+}
+
+function resolveFrame(kf, g, reg) {
+  const out = {};
+  for (const e of kf) {
+    const o = 'o' in e ? e.o : 1, b = cell(g, e);
+    if (e.run) { Object.assign(out, placeRun(e.run, reg, b, e.r || 0, o)); continue; }
+    const it = reg[e.id];
+    if (!it) throw new Error(`frame names unknown element "${e.id}"`);
+    if (it.kind === 'text') Object.assign(out, placeRun([e.id], reg, b, e.r || 0, o));
+    else if (it.kind === 'html') out[e.id] = { x: b.x, y: b.y, o };
+    else out[e.id] = { x: b.x, y: b.y, w: b.w, h: b.h, o };
+  }
+  const missing = Object.keys(reg).filter((id) => !out[id]);
+  if (missing.length) throw new Error(`frame has no pose for ${missing.join(', ')}`);
+  return out;
+}
+
+function lerpPose(a, b, t) { const q = {}; for (const k in a) q[k] = lerp(a[k], b[k], t); return q; }
+
+/** Which transition is running at p, and how far element i of n is through it (staggered). */
+function stage(p, moves, i, n, spread) {
+  let k = 0;
+  while (k < moves.length && p >= moves[k][0]) k++;
+  if (k === 0) return { k: 0, t: 0 };
+  const [a, b] = moves[k - 1], span = b - a;
+  const st = n > 1 ? (span * spread) / (n - 1) : 0, len = span - st * (n - 1);
+  return { k: k - 1, t: inOut(seg(p, a + st * i, a + st * i + len)) };
+}
+
+function createComposer(reg, frames, moves) {
+  let R = [];
+  return {
+    layout(g) {
+      const kfs = g.portrait ? frames.P : frames.L;
+      if (kfs.length !== moves.length + 1) throw new Error(`need ${moves.length + 1} frames for ${moves.length} moves, got ${kfs.length}`);
+      R = kfs.map((kf) => resolveFrame(kf, g, reg));
+    },
+    pose(id, p, i, n, spread) { const { k, t } = stage(p, moves, i, n, spread); return lerpPose(R[k][id], R[Math.min(k + 1, R.length - 1)][id], t); },
+  };
+}
+
+const RENDER = {
+  text(it, q, skew = 0) {
+    it.node.setAttribute('transform', `translate(${q.ax} ${q.ay}) rotate(${q.r}) skewX(${skew}) scale(${Math.max(q.s, 0)}) translate(${-it.m.ix} 0)`);
+    it.node.style.opacity = q.o;
+  },
+  rect(it, q) {
+    it.node.setAttribute('x', q.x); it.node.setAttribute('y', q.y);
+    it.node.setAttribute('width', Math.max(q.w, 0)); it.node.setAttribute('height', Math.max(q.h, 0));
+    it.node.style.opacity = q.o;
+  },
+  html(it, q) { it.node.style.transform = `translate(${q.x}px, ${q.y}px)`; it.node.style.opacity = q.o; },
+  greek(it, q) {
+    const n = Math.floor(Math.max(q.h, 0) / it.pitch);
+    it.lines.forEach((ln, j) => {
+      const f = j < n ? it.pattern[j] : 0;
+      ln.setAttribute('width', f ? Math.max(q.w * f, 0) : 0);
+      if (!f) return;
+      ln.setAttribute('x', q.x); ln.setAttribute('y', q.y + j * it.pitch); ln.setAttribute('height', it.thick);
+    });
+    it.node.style.opacity = q.o;
+  },
+};
+
+/* ───────── 1 poster ───────── */
+function scenePoster() {
+  const cfg = CONFIG.poster, pin = $('#poster .pin'), svg = $('#poster-svg');
+  const grid = createGridLines(svg);
+  const reg = { red: { kind: 'rect', node: svgEl('rect', { class: 'sig' }, svg) } };
+  cfg.glyphs.forEach(([id, ch]) => { reg[id] = textItem(svg, ch, 'lat', 'latin'); });
+  $$('.blk', pin).forEach((node) => { reg[node.dataset.id] = { kind: 'html', node }; });
+  const comp = createComposer(reg, cfg, cfg.moves), cue = $('#cue');
+  const intro = { t: reduce ? 1 : 0 };
+  if (!reduce) gsap.to(intro, { t: 1, duration: cfg.intro.dur, ease: 'none' });
+  let g;
+  return {
+    layout() { g = lattice(pin); grid.layout(g); measureItems(reg); comp.layout(g); },
+    render(p) {
+      grid.draw(outCubic(intro.t), 0.6); grid.fade(cfg.gridAlpha);
+      const n = cfg.order.length;
+      cfg.order.forEach((id, i) => {
+        const it = reg[id], q = comp.pose(id, p, i, n, cfg.spread);
+        const a = i * cfg.intro.stagger, k = outCubic(seg(intro.t, a, a + cfg.intro.window));
+        q.o *= k;
+        if (it.kind === 'text') { q.ay += (1 - k) * g.v * cfg.intro.riseV; RENDER.text(it, q, spring.x * cfg.skewDeg); }
+        else RENDER[it.kind](it, q);
+      });
+      cue.style.opacity = 1 - segR(p, cfg.cueOut);
+    },
+  };
+}
+
+/* ───────── 2 grid systems ───────── */
+function sceneGrid() {
+  const cfg = CONFIG.grid, pin = $('#grid .pin'), svg = $('#grid-svg');
+  const grid = createGridLines(svg);
+  const reg = {};
+  const rect = (id, cls) => { reg[id] = { kind: 'rect', node: svgEl('rect', { class: cls }, svg) }; };
+  rect('r1', 'sig'); rect('b1', 'ink'); rect('r2', 'sig');
+  ['g1', 'g2', 'g3'].forEach((id, bi) => {
+    const node = svgEl('g', { class: 'ink' }, svg), rnd = mulberry32(cfg.greek.seed + bi);
+    const pattern = Array.from({ length: cfg.greek.max }, (_, j) => {
+      const r = j % cfg.greek.para;
+      if (r === cfg.greek.para - 1) return 0;
+      return r === cfg.greek.para - 2 ? 0.35 + rnd() * 0.3 : 0.84 + rnd() * 0.16;
+    });
+    const lines = pattern.map(() => svgEl('rect', { width: 0 }, node));
+    reg[id] = { kind: 'greek', node, lines, pattern, pitch: 0, thick: 0 };
+  });
+  cfg.texts.forEach(([id, str, cls, font]) => { reg[id] = textItem(svg, str, cls, font); });
+  const enter = (kf) => kf.map((e) => ({ ...e, o: 0, h: 0, sq: false }));
+  const frames = { L: [enter(cfg.L[0]), ...cfg.L], P: [enter(cfg.P[0]), ...cfg.P] };
+  const comp = createComposer(reg, frames, cfg.moves);
+  return {
+    layout() {
+      const g = lattice(pin), o = g.portrait ? 'portrait' : 'landscape';
+      grid.layout(g); measureItems(reg);
+      ['g1', 'g2', 'g3'].forEach((id) => { reg[id].pitch = cfg.greek.pitch[o]; reg[id].thick = cfg.greek.thick[o]; });
+      comp.layout(g);
+    },
+    render(p, e) {
+      grid.draw(e, 0.55);
+      const n = cfg.order.length;
+      cfg.order.forEach((id, i) => {
+        const it = reg[id], q = comp.pose(id, p, i, n, cfg.spread);
+        if (it.kind === 'text') RENDER.text(it, q, spring.x * cfg.skewDeg); else RENDER[it.kind](it, q);
+      });
+    },
+  };
+}
+
+/* ───────── 3 kinetic sentence ───────── */
+function sceneKinetic() {
+  const cfg = CONFIG.kinetic, pin = $('#kinetic .pin'), layer = $('#kw-layer'), ko = $('#kw-ko'), by = $('#kw-by');
+  const grid = createGridLines($('#kinetic-svg'));
+  const words = cfg.words.map((w) => { const el = document.createElement('span'); el.className = 'kw'; el.textContent = w; el.style.fontSize = `${CONFIG.base}px`; layer.appendChild(el); return { el, w: 0 }; });
+  const inkC = token('--ink'), sigC = token('--signal');
+  const last = words.length - 1;
+  let A = [], C = [], X = [];
+  const lineH = cfg.leading * CONFIG.base;
+
+  /** Flush-left, ragged-right setting of word lines inside a box. */
+  function setLines(lines, box) {
+    const space = words[0].space;
+    const widths = lines.map((ln) => ln.reduce((s, i) => s + words[i].w, 0) + space * (ln.length - 1));
+    const s = Math.min(box.w / Math.max(...widths), box.h / (lines.length * lineH));
+    const out = [];
+    lines.forEach((ln, li) => { let x = box.x; ln.forEach((i) => { out[i] = { x, y: box.y + li * lineH * s, r: 0, s }; x += (words[i].w + space) * s; }); });
+    return { poses: out, s, bottom: box.y + lines.length * lineH * s };
+  }
+
+  return {
+    layout() {
+      const g = lattice(pin), o = g.portrait ? cfg.P : cfg.L;
+      grid.layout(g); grid.draw(1); grid.fade(cfg.gridAlpha);
+      words.forEach((wd) => { wd.w = wd.el.offsetWidth; });
+      mctx.font = CONFIG.fonts.latin; words[0].space = mctx.measureText(' ').width;
+      // setAlign: 0 keeps the setting on the top margin, 0.5 centres it vertically in the sheet.
+      const setA = setLines(o.set, { x: g.x0, y: g.y0, w: g.sw, h: g.sh }), shift = (g.y0 + g.sh - setA.bottom) * o.setAlign;
+      A = setA.poses.map((q) => ({ ...q, y: q.y + shift }));
+      const block = setLines(o.block, { x: g.x0, y: g.y0, w: g.sw * o.blockW, h: g.sh * o.blockH });
+      const bigS = g.sw / words[last].w;
+      C = block.poses; C[last] = { x: g.x0, y: g.y0 + g.sh - CONFIG.base * bigS * 0.96, r: 0, s: bigS };
+      const rnd = mulberry32(cfg.seed), aS = A[0].s;
+      X = words.map(() => ({
+        x: g.x0 + Math.floor(rnd() * cfg.chaosCols) * g.u, y: g.y0 + Math.floor(rnd() * cfg.chaosRows) * g.v,
+        r: cfg.chaosRot[Math.floor(rnd() * cfg.chaosRot.length)], s: aS * lerp(cfg.chaosScale[0], cfg.chaosScale[1], rnd()),
+      }));
+      ko.style.transform = `translate(${g.x0}px, ${block.bottom + g.v * 0.5}px)`;
+      by.style.transform = `translate(${g.x0}px, ${block.bottom + g.v * 0.5 + ko.offsetHeight + 10}px)`;
+    },
+    render(p) {
+      const n = words.length, [a, b] = cfg.snap, step = (b - a - cfg.snapDur) / (n - 1);
+      const [ra, rb] = cfg.reset, rst = ((rb - ra) * cfg.resetSpread) / (n - 1), rlen = rb - ra - rst * (n - 1);
+      words.forEach((wd, i) => {
+        const t = inOut(seg(p, a + i * step, a + i * step + cfg.snapDur));
+        const tc = inOut(seg(p, ra + i * rst, ra + i * rst + rlen));
+        const q = lerpPose(lerpPose(X[i], A[i], t), C[i], tc);
+        const loose = 1 - t, sign = i % 2 ? 1 : -1;
+        const rot = q.r + spring.x * cfg.wobbleDeg * loose * sign, y = q.y + spring.x * cfg.wobblePx * loose;
+        wd.el.style.transform = `translate(${q.x}px, ${y}px) rotate(${rot}deg) skewX(${-spring.x * cfg.skewDeg * t}deg) scale(${q.s})`;
+        wd.el.style.opacity = lerp(cfg.faint, 1, t);
+        if (i === last) wd.el.style.color = `rgb(${inkC.map((c, k) => Math.round(lerp(c, sigC[k], tc))).join(',')})`;
+      });
+      const k = segR(p, cfg.trans);
+      ko.style.opacity = k; by.style.opacity = k;
+    },
+  };
+}
+
+/* ───────── 4 circles and bars ───────── */
+function sceneCircles() {
+  const cfg = CONFIG.circles, pin = $('#circles .pin'), svg = $('#circles-svg'), type = $('#c-type');
+  const world = svgEl('g', {}, svg);
+  const rings = cfg.rings.map((r) => svgEl('circle', { class: 'ring', cx: 0.5, cy: 0.5, r, pathLength: 1 }, world));
+  const group = svgEl('g', {}, world);
+  const bars = cfg.bars.map((b) => svgEl('rect', { class: 'ink', y: b.y - b.t / 2, height: b.t }, group));
+  const dots = cfg.dots.map(() => svgEl('circle', { class: 'ink', r: 0 }, group));
+  const disc = svgEl('circle', { class: 'sig', r: cfg.disc.r, cx: cfg.disc.to[0] }, world);
+  // Before assembly the dots hang as a vertical string through the centre, perpendicular to the tilted bars.
+  const preR = cfg.dots.map((d) => d.r * cfg.pre.scale);
+  const total = preR.reduce((s, r) => s + 2 * r, 0) + cfg.pre.gap * (preR.length - 1);
+  let cursor = 0.5 - total / 2;
+  const pre = preR.map((r) => { const y = cursor + r; cursor += 2 * r + cfg.pre.gap; return [0.5, y]; });
+  const stag = (p, r, i, n, spread) => { const span = r[1] - r[0], st = (span * spread) / (n - 1), len = span - st * (n - 1); return seg(p, r[0] + st * i, r[0] + st * i + len); };
+  return {
+    layout() {
+      const g = lattice(pin), q = cfg.square;
+      // Portrait: an oversized square that bleeds past both sides, sitting on the bottom margin under the title.
+      const S = g.portrait ? g.sw * q.portraitScale : Math.min(g.H * q.landscapeH, g.W * q.landscapeW);
+      const x = g.portrait ? (g.W - S) / 2 : g.W - g.m - S, y = g.portrait ? g.H - g.m - S : (g.H - S) / 2;
+      world.setAttribute('transform', `translate(${x} ${y}) scale(${S})`);
+      rings.forEach((c) => { c.style.strokeWidth = cfg.ringPx / S; });
+      // Bars run from a lattice column (or the left bleed) to beyond the right edge; the extra length covers the tilt.
+      const col = cfg.barStartCol[g.portrait ? 'portrait' : 'landscape'];
+      const left = col < 0 ? -g.W : g.x0 + col * g.u, right = g.W * 2;
+      bars.forEach((b) => { b.setAttribute('x', (left - x) / S); b.setAttribute('width', (right - left) / S); });
+    },
+    render(p, e) {
+      const n = rings.length;
+      rings.forEach((c, i) => {
+        const k = smooth(stag(e, cfg.ringDraw, i, n, cfg.ringSpread));
+        c.style.strokeDasharray = `${cfg.ringArc * k} 1`;
+        c.setAttribute('transform', `rotate(${-90 + i * 47 + p * cfg.ringTurn * (i % 2 ? -1 : 1)} .5 .5)`);
+      });
+      const G = lerp(cfg.tilt, 0, inOut(segR(p, cfg.assemble))) + spring.x * cfg.velDeg;
+      group.setAttribute('transform', `rotate(${G} .5 .5)`);
+      bars.forEach((b, i) => {
+        const t = inOut(stag(p, cfg.barsIn, i, bars.length, cfg.barsSpread));
+        b.setAttribute('transform', `translate(${(1 - t) * cfg.barTravel * (i % 2 ? 1 : -1)} 0)`);
+      });
+      dots.forEach((d, i) => {
+        const pop = stag(p, cfg.popIn, i, dots.length, cfg.popSpread);
+        const s = pop > 0 ? backOut(pop) : 0;
+        const t = inOut(stag(p, cfg.assemble, i, dots.length, cfg.assembleSpread));
+        const [tx, ty] = cfg.dots[i].to;
+        d.setAttribute('cx', lerp(pre[i][0], tx, t)); d.setAttribute('cy', lerp(pre[i][1], ty, t));
+        d.setAttribute('r', Math.max(0, lerp(preR[i], cfg.dots[i].r, t) * s));
+      });
+      const dk = segR(p, cfg.discIn);
+      disc.setAttribute('cy', lerp(cfg.disc.fromY, cfg.disc.to[1], backOut(dk)));
+      disc.style.opacity = dk > 0 ? 1 : 0;
+      const tk = smooth(segR(e, cfg.titleIn));
+      type.style.transform = `translateY(${(1 - tk) * cfg.titleRisePx}px)`;
+    },
+  };
+}
+
+/* ───────── 5 specimen ───────── */
+function sceneSpecimen() {
+  const cfg = CONFIG.specimen, pin = $('#specimen .pin'), word = $('#sp-word'), han = $('#sp-han'), probe = $('#sp-probe');
+  const fall = $$('#sp-fall span'), mark = { wght: $('#ax-wght'), wdth: $('#ax-wdth') };
+  const fvs = (w, d) => `"wght" ${w.toFixed(1)}, "wdth" ${d.toFixed(2)}`;
+  const at = (table, p) => {
+    let i = 0;
+    while (i < table.length - 2 && p > table[i + 1][0]) i++;
+    const [a, b] = [table[i], table[i + 1]], t = smooth(seg(p, a[0], b[0]));
+    return a.slice(1).map((v, k) => lerp(v, b[k + 1], t));
+  };
+  /** Width of text at 100px with the widest axis settings, so nothing can overflow once animated. */
+  const widest = (text, family) => { probe.style.fontFamily = family; probe.style.fontSize = '100px'; probe.style.fontVariationSettings = fvs(cfg.axes.wght[1], cfg.axes.wdth[1]); probe.textContent = text; return probe.getBoundingClientRect().width; };
+  return {
+    layout() {
+      const g = lattice(pin), latin = getComputedStyle(word).fontFamily, hangul = getComputedStyle(han).fontFamily;
+      word.style.fontSize = `${Math.min((g.sw * 100) / widest(word.textContent, latin), g.H * cfg.wordMaxH)}px`;
+      const fw = $('#sp-fall').getBoundingClientRect().width;
+      const f0 = Math.min((fw * 100) / widest(fall[0].textContent, latin), (g.H * cfg.fallMaxH[g.portrait ? 'portrait' : 'landscape']) / cfg.fallSizes.reduce((s, v) => s + v * 0.95, 0));
+      fall.forEach((el, j) => { el.style.fontSize = `${f0 * cfg.fallSizes[j]}px`; });
+      han.style.fontSize = `${(g.sw * 100) / widest(han.textContent, hangul)}px`;
+    },
+    render(p, e) {
+      const [w, d0] = at(cfg.path, p);
+      const d = clamp(d0 - spring.x * cfg.velWdth, cfg.axes.wdth[0], cfg.axes.wdth[1]);
+      word.style.fontVariationSettings = fvs(w, d);
+      word.style.opacity = smooth(segR(e, cfg.fadeIn));
+      mark.wght.style.setProperty('--k', (w - cfg.axes.wght[0]) / (cfg.axes.wght[1] - cfg.axes.wght[0]));
+      mark.wdth.style.setProperty('--k', (d - cfg.axes.wdth[0]) / (cfg.axes.wdth[1] - cfg.axes.wdth[0]));
+      fall.forEach((el, j) => { const [fw2, fd] = at(cfg.path, clamp(p - (j + 1) * cfg.lag, 0, 1)); el.style.fontVariationSettings = fvs(fw2, fd); });
+      const [hw] = at(cfg.hanPath, clamp(p - cfg.lag, 0, 1));
+      han.style.fontVariationSettings = `"wght" ${hw.toFixed(1)}`;
+    },
+  };
+}
+
+/* ───────── 6 finale ───────── */
+function sceneFinale() {
+  const cfg = CONFIG.finale, pin = $('#finale .pin'), svg = $('#finale-svg');
+  const grid = createGridLines(svg);
+  const reg = { bar: { kind: 'rect', node: svgEl('rect', { class: 'ink' }, svg) } };
+  const letters = ['f1', 'f2', 'f3', 'f4', 'f5'];
+  [...'SWISS'].forEach((ch, i) => { reg[letters[i]] = textItem(svg, ch, 'lat', 'latin'); });
+  $$('.blk', pin).forEach((node) => { reg[node.dataset.id] = { kind: 'html', node }; });
+  const discPos = $('#disc-pos'), magnet = $('#magnet'), label = magnet.querySelector('span');
+  const spin = letters.map((_, i) => (i % 2 ? 1 : -1) * cfg.dropRot * (0.6 + 0.4 * ((i * 37) % 5) / 4));
+  let F, g;
+  return {
+    layout() {
+      g = lattice(pin); grid.layout(g); measureItems(reg);
+      F = resolveFrame(g.portrait ? cfg.P : cfg.L, g, reg);
+      const d = g.portrait ? cfg.discP : cfg.discL, r = Math.min(d.ru * g.u, d.rv * g.v);
+      Object.assign(discPos.style, { width: `${2 * r}px`, height: `${2 * r}px`, left: `${g.x0 + d.x * g.u - r}px`, top: `${g.y0 + d.y * g.v - r}px` });
+    },
+    render(p, e) {
+      grid.draw(e, 0.55);
+      grid.fade(lerp(1, cfg.gridKeep, smooth(segR(p, cfg.gridOut))));
+      const [a, b] = cfg.drop, n = letters.length, st = ((b - a) * cfg.dropSpread) / (n - 1), len = b - a - st * (n - 1);
+      letters.forEach((id, i) => {
+        const t = outCubic(seg(p, a + st * i, a + st * i + len));
+        RENDER.text(reg[id], { ...F[id], ay: F[id].ay - (1 - t) * g.H * 1.2, r: F[id].r + (1 - t) * spin[i], o: t > 0 ? 1 : 0 }, spring.x * 8 * t);
+      });
+      const bk = inOut(segR(p, cfg.barIn));
+      RENDER.rect(reg.bar, { ...F.bar, w: F.bar.w * bk, h: F.bar.h * lerp(1, cfg.barGrowTo, inOut(segR(p, cfg.barGrow))) });
+      const kk = smooth(segR(p, cfg.koIn));
+      ['ko', 'note'].forEach((id) => RENDER.html(reg[id], { ...F[id], y: F[id].y + (1 - kk) * 24, o: kk }));
+      const dk = segR(p, cfg.discIn);
+      discPos.style.opacity = dk > 0 ? 1 : 0;
+      discPos.style.scale = backOut(dk);
+      discPos.style.pointerEvents = dk > 0.5 ? 'auto' : 'none';
+    },
+    magnet() {
+      magnet.addEventListener('pointermove', (e) => {
+        const r = magnet.getBoundingClientRect(), dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2);
+        gsap.to(magnet, { x: dx * cfg.magnet.pull, y: dy * cfg.magnet.pull, duration: 0.4, ease: 'power3.out' });
+        gsap.to(label, { x: dx * cfg.magnet.label, y: dy * cfg.magnet.label, duration: 0.4, ease: 'power3.out' });
+      });
+      magnet.addEventListener('pointerleave', () => gsap.to([magnet, label], { x: 0, y: 0, duration: 0.8, ease: 'elastic.out(1, .4)' }));
+    },
+  };
+}
+
+/* ───────── boot: fonts first, every layout depends on ink metrics ───────── */
+const hangulText = [...new Set($$('.han, .sub, .lock, .kw-ko, .c-title, .sp-han').map((el) => el.textContent).join('') + '격자')].join('');
+await Promise.all([
+  document.fonts.load(CONFIG.fonts.latin, 'SWISGrdtheaynoucAK.,'),
+  document.fonts.load(CONFIG.fonts.hangul, hangulText),
+  document.fonts.load('500 16px "Pretendard Variable"', hangulText),
+]).catch((e) => console.error('font loading failed, layout will use fallback metrics', e));
+const scenes = [['#poster', scenePoster(), CONFIG.poster.still], ['#grid', sceneGrid(), CONFIG.grid.still], ['#kinetic', sceneKinetic(), CONFIG.kinetic.still],
+  ['#circles', sceneCircles(), CONFIG.circles.still], ['#specimen', sceneSpecimen(), CONFIG.specimen.still]];
+const finale = sceneFinale();
+scenes.push(['#finale', finale, CONFIG.finale.still]);
+scenes.forEach(([sel, sc, still]) => mountScene(sel, sc, still));
+finale.magnet();
+ScrollTrigger.refresh();
+</script>
+</body>
+</html>

@@ -22,6 +22,13 @@ after-dark-4/index.html       AFTER DARK IV. WebGL2 유체 커서, 영상 텍스
 after-dark-5/index.src.html   AFTER DARK V 원본. 레이마칭 메타볼, 속도 반응 글자, Three.js 파편 조각과 후처리, 변위 전환 갤러리, CSS 3D 비행, Matter.js 글자, 선 드로잉
 after-dark-5/build.mjs        갤러리 스틸 5장을 data URI 로 넣어 index.html 을 만든다 (node after-dark-5/build.mjs)
 after-dark-5/index.html       빌드 결과(약 1.1MB). 직접 고치지 않는다
+swiss/                        SWISS. 흰 바탕 검정·빨강 스위스 타이포, 격자 재배열, SVG 포스터, 가변 폰트 견본. 단일 파일, NOTES.md
+chrome/                       CHROME. Y2K 하늘색·크롬, 액체 금속, 비눗방울, 홀로 카드, 녹는 3D 글자, 하늘 비행. src/*.js 를 build.mjs 가 이어 붙여 index.html 생성, NOTES.md
+sumi/                         SUMI 수묵. 흰 화선지, 먹 번짐 WebGL, 산수 레이어, 붓글씨 획순, 먹물 영상 마스크, 매화. js/*.js + sumi.css, build.mjs, NOTES.md
+toytown/                      TOY TOWN. 절차 생성 3D 장난감 섬, 건물 낙하 조립, 낮밤, 차 추적 카메라, 틸트시프트. 단일 파일, NOTES.md
+assets/chrome/, assets/sumi/  위 두 작품의 이미지·영상 (SUMI 영상 3편은 Flow, 36크레딧)
+tools/gen-images-chrome.mjs   CHROME 이미지 생성
+tools/gen-images-sumi.mjs     SUMI 이미지 생성 (prep-images-sumi.py 가 흰색 보정·알파 마스크)
 assets/img/                   ChatGPT OAuth 프록시로 만든 이미지(webp)
 assets/img/tex/               WebGL 텍스처. III 빌드 때 data URI 로 들어간다
 assets/img/ad4/               IV 의 완성차·분해도 스틸(webp 참조, png 는 원본 보관)

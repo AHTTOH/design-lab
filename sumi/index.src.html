@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SUMI 수묵</title>
+<meta name="description" content="먹이 번지는 한지, 스크롤로 걷는 수묵 인터랙션 연습">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Song+Myung&family=Nanum+Myeongjo:wght@400;700;800&display=swap">
+<link rel="stylesheet" href="sumi.css">
+<style>
+  /* The brush mask is inlined at build time: CSS mask images are fetched with CORS and fail on file://. */
+  :root { --brush-mask: url('%%IMG:brush-mask%%'); }
+</style>
+</head>
+<body>
+<div class="paper" aria-hidden="true"></div>
+
+<main>
+  <section class="scene" id="s-ink" style="--len:1000vh" aria-label="먹">
+    <div class="pin">
+      <canvas id="ink" aria-hidden="true"></canvas>
+      <h1 class="v-title hero-title" id="hero-title" data-chars>수묵</h1>
+      <p class="v-line hero-line" id="hero-line" data-chars>먹은 물을 따라 번진다</p>
+      <div class="cue" id="cue" aria-hidden="true">아래로</div>
+    </div>
+  </section>
+
+  <section class="scene" id="s-mnt" style="--len:1400vh" aria-label="산">
+    <div class="pin">
+      <div class="mnt-stage" id="mnt-stage" aria-hidden="true">
+        <div class="mnt-far" id="mnt-far"><img src="../assets/sumi/mountains.webp" alt="" width="1774" height="887"></div>
+      </div>
+      <p class="v-line mnt-line" id="mnt-line" data-chars>산은 멀수록 옅어진다</p>
+      <img class="seal seal-small" id="mnt-seal" src="../assets/sumi/seal.webp" alt="" width="480" height="461">
+      <div class="veil" id="mnt-veil" aria-hidden="true"></div>
+    </div>
+  </section>
+
+  <section class="scene" id="s-brush" style="--len:1300vh" aria-label="여백">
+    <div class="pin">
+      <img class="brush-ghost" id="brush-ghost" src="../assets/sumi/mountains.webp" alt="" width="1774" height="887">
+      <div class="brush-bleed" id="brush-bleed" aria-hidden="true"></div>
+      <div class="brush-ink" id="brush-ink" role="img" aria-label="붓글씨 여백"></div>
+      <p class="v-line brush-cap" id="brush-cap" lang="zh-Hant">餘白</p>
+    </div>
+  </section>
+
+  <section class="scene" id="s-water" style="--len:1100vh" aria-label="물">
+    <div class="pin">
+      <img class="water-ghost" id="water-ghost" src="../assets/sumi/ink-cloud.webp" alt="" width="1280" height="720">
+      <div class="water" id="water">
+        <video id="v-cloud" muted loop playsinline preload="none" poster="../assets/sumi/ink-cloud.webp" src="../assets/sumi/ink-cloud.mp4"></video>
+        <video id="v-plume" muted loop playsinline preload="none" poster="../assets/sumi/ink-plume.webp" src="../assets/sumi/ink-plume.mp4"></video>
+        <video id="v-bloom" muted loop playsinline preload="none" poster="../assets/sumi/ink-bloom.webp" src="../assets/sumi/ink-bloom.mp4"></video>
+      </div>
+      <p class="v-line water-line" id="water-line" data-chars>먹이 물을 만나면</p>
+      <p class="v-line water-line2" id="water-line2" data-chars>구름이 된다</p>
+    </div>
+  </section>
+
+  <section class="scene" id="s-plum" style="--len:1300vh" aria-label="매화">
+    <div class="pin">
+      <img class="plum-ghost" id="plum-ghost" src="../assets/sumi/plum.webp" alt="" width="1536" height="1024">
+      <canvas id="plum" aria-hidden="true"></canvas>
+      <h2 class="v-title plum-title" id="plum-title" data-chars>매화</h2>
+    </div>
+  </section>
+
+  <section class="scene" id="s-end" style="--len:900vh" aria-label="낙관">
+    <div class="pin">
+      <div class="enso" id="enso" aria-hidden="true"></div>
+      <img class="seal seal-big" id="seal-big" src="../assets/sumi/seal.webp" alt="붉은 낙관" width="480" height="461">
+      <img class="seal seal-bleed" id="seal-bleed" src="../assets/sumi/seal.webp" alt="" width="480" height="461">
+      <a class="magnet" id="magnet" href="../"><span>목록으로</span></a>
+    </div>
+  </section>
+</main>
+
+<script>
+/* Tunables for every scene. Scene lengths live in the markup (--len) and :root --scroll-stretch. */
+const CONFIG = {
+  dprMax: 1.5,
+  lenisLerp: 0.08,
+  mobileBreak: 760,
+  ink: {
+    simRes: 96, dyeRes: 768, dyeResMobile: 384,
+    pressureIters: 16, pressureDecay: 0.8, curl: 9,
+    velocityDissipation: 1.1, dyeDissipation: 0.01, bleed: 0.16,
+    gain: 1.6, threshold: 0.07, edge: 0.2, paperFiber: 3.2, paperTile: 1024,
+    brushPx: 7, brushInk: 0.6, brushStepPx: 3, brushForce: 600,
+    dropForce: 190, scrollForce: 0.5, scrollVelCap: 12, maxDt: 1 / 30,
+    intro: [{ x: 0.22, y: 0.36, px: 64 }, { x: 0.34, y: 0.62, px: 40 }, { x: 0.12, y: 0.72, px: 28 }, { x: 0.46, y: 0.24, px: 20 }],
+    drops: [
+      { at: 0.04, x: 0.18, y: 0.28, px: 84 }, { at: 0.09, x: 0.44, y: 0.7, px: 58 },
+      { at: 0.15, x: 0.3, y: 0.52, px: 84 }, { at: 0.21, x: 0.56, y: 0.22, px: 32 },
+      { at: 0.27, x: 0.12, y: 0.78, px: 66 }, { at: 0.33, x: 0.5, y: 0.46, px: 104 },
+      { at: 0.4, x: 0.66, y: 0.8, px: 50 }, { at: 0.47, x: 0.24, y: 0.14, px: 76 },
+      { at: 0.54, x: 0.42, y: 0.9, px: 128 },
+    ],
+    reduceSteps: 140,
+    titleOut: [0.5, 0.74], lineIn: [0.06, 0.2], lineOut: [0.46, 0.64], wash: [0.86, 1], washMax: 0.62,
+  },
+  mountains: {
+    widthFactor: 1.35, horizon: 0.42, mistHalf: 0.17, washScale: 0.5, camEnd: 4.8, camCurve: 1.15,
+    driftVw: 9, pointerVw: 2.2, fadeNear: [0.75, 1.7],
+    farZ: 13, farIn: [0, 0.2],
+    layers: [
+      { z: 10, tone: 0.16, base: 0.5, amp: 0.2, peaks: 5, seed: 11 },
+      { z: 8, tone: 0.24, base: 0.56, amp: 0.24, peaks: 4, seed: 23 },
+      { z: 6.3, tone: 0.36, base: 0.62, amp: 0.26, peaks: 4, seed: 37 },
+      { z: 4.9, tone: 0.5, base: 0.7, amp: 0.3, peaks: 3, seed: 41 },
+      { z: 3.7, tone: 0.68, base: 0.78, amp: 0.34, peaks: 3, seed: 53, trees: 7 },
+      { z: 2.7, tone: 0.86, base: 0.9, amp: 0.4, peaks: 2, seed: 67, trees: 11 },
+    ],
+    mists: [{ z: 9, y: 0.55 }, { z: 7.1, y: 0.62 }, { z: 5.6, y: 0.7 }, { z: 4.3, y: 0.78 }, { z: 3.2, y: 0.87 }, { z: 2.3, y: 0.96 }],
+    veilIn: [0, 0.04], veilOut: [0.9, 1], veilOutMax: 0.35, lineIn: [0.5, 0.62], sealIn: [0.62, 0.68], textOut: [0.84, 0.92],
+  },
+  brush: {
+    strokeFrom: 0.01, strokeTo: 0.62, gapShare: 0.3, bristles: 13, bleedBlurPx: 12, bleedAlpha: 0.42, widthGain: 1.3,
+    capIn: [0.64, 0.72], zoom: [0.9, 1], zoomScale: 4, zoomOrigin: [0.76, 0.9], zoomFadeTo: 0.35,
+    ghostFrom: 0.85, ghostTo: 0.22, ghostOut: [0, 0.4],
+  },
+  water: {
+    wipe: [0, 0.08], ghostFrom: 0.42, ghostOut: [0.2, 0.34], ghostEnd: [0.9, 1], ghostEndTo: 0.4, grow: [0.3, 0.52], strokeVw: 86, strokeVwNarrow: 150, growMax: 2400,
+    cross: [0.56, 0.64], cross2: [0.84, 0.9], shrink: [0.76, 0.9], unwipe: [0.93, 1], unwipeMax: 0.7,
+    lineIn: [0.1, 0.2], lineOut: [0.3, 0.38], line2In: [0.6, 0.68], line2Out: [0.74, 0.8],
+  },
+  plum: {
+    seed: 7, grow: [0, 0.48], growStart: 0.42, bloom: [0.26, 0.8], ghostFrom: 0.4, ghostTo: 0.2, ghostFade: [0.1, 0.5], titleIn: [0.66, 0.76],
+    fall: 0.86, petals: 26, maxDepth: 5, trunkWidth: 46, maxSegments: 900, taper: 0.965,
+    angleMin: -2.6, angleMax: 0.35, branchChance: [0.17, 0.2, 0.16, 0.12], jitterThick: 0.5, jitterThin: 0.28,
+    ink: '#000000', blossom: [178, 34, 30],
+  },
+  end: {
+    enso: [0, 0.26], ensoStart: 0.3, press: [0.3, 0.42], bleed: [0.41, 0.55], button: [0.5, 0.6],
+  },
+};
+// Textures sampled by WebGL must be same-origin on file://, so the build inlines them.
+const TEX = { paper: '%%IMG:paper%%' };
+</script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/lenis@1.1.13/dist/lenis.min.js"></script>
+<script src="js/core.js"></script>
+<script src="js/brush-geom.js"></script>
+<script src="js/ink.js"></script>
+<script src="js/mountains.js"></script>
+<script src="js/brush.js"></script>
+<script src="js/water.js"></script>
+<script src="js/plum.js"></script>
+<script src="js/end.js"></script>
+</body>
+</html>

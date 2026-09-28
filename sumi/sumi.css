@@ -1,0 +1,107 @@
+/* SUMI: ink-wash study. Pure white hanji, black ink in grey washes, one cinnabar seal. */
+:root {
+  --paper: #ffffff;
+  --ink: #000000;
+  --wash-1: #ececec;
+  --wash-2: #cdcdcd;
+  --wash-3: #9a9a9a;
+  --wash-4: #4f4f4f;
+  --seal: #b2221e;
+  --brush: 'Song Myung', 'Nanum Myeongjo', serif;
+  --serif: 'Nanum Myeongjo', 'Noto Serif KR', serif;
+  --scroll-stretch: 1.5;
+  --gutter: clamp(16px, 6vw, 96px);
+  --title: min(34vh, 30vw);
+  --line: clamp(15px, 0.55vw + 11px, 21px);
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--serif); overflow-x: clip; }
+::selection { background: var(--seal); color: var(--paper); }
+
+/* hanji fibres multiply over everything; the texture is #FFFFFF except for faint grey fibres */
+.paper { position: fixed; inset: 0; z-index: 40; pointer-events: none; background: url('../assets/sumi/paper.webp') center / 1024px auto repeat; mix-blend-mode: multiply; opacity: .9; }
+
+main { position: relative; }
+.scene { position: relative; height: calc(var(--len) * var(--scroll-stretch)); background: var(--paper); }
+.pin { position: sticky; top: 0; height: 100vh; overflow: hidden; }
+
+.v-title { position: absolute; margin: 0; writing-mode: vertical-rl; font-family: var(--brush); font-weight: 400; font-size: var(--title); line-height: .92; letter-spacing: -.04em; color: var(--ink); }
+.v-line { position: absolute; margin: 0; writing-mode: vertical-rl; font-family: var(--serif); font-weight: 700; font-size: var(--line); letter-spacing: .24em; line-height: 1; color: var(--wash-4); white-space: nowrap; }
+[data-chars] .c { display: inline-block; will-change: opacity, filter, transform; }
+
+/* 1 ink */
+#ink { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: pan-y; }
+.hero-title { right: calc(var(--gutter) + 2vw); top: 7vh; mix-blend-mode: multiply; pointer-events: none; }
+.hero-line { right: calc(var(--gutter) + var(--title) + 3vw); top: 9vh; pointer-events: none; }
+.cue { position: absolute; left: 50%; bottom: 3.5vh; transform: translateX(-50%); writing-mode: vertical-rl; font-size: 12px; letter-spacing: .5em; color: var(--wash-3); pointer-events: none; }
+.cue::after { content: ''; display: block; width: 1px; height: 44px; margin: 10px auto 0; background: linear-gradient(var(--wash-3), transparent); transform-origin: top; animation: drip 2.4s ease-in-out infinite; }
+@keyframes drip { 0% { transform: scaleY(0); } 55% { transform: scaleY(1); opacity: 1; } 100% { transform: scaleY(1); opacity: 0; } }
+
+/* 2 mountains */
+.mnt-stage { position: absolute; inset: 0; }
+.mnt-layer, .mnt-far, .mist { position: absolute; left: 50%; top: 0; will-change: transform, opacity; transform-origin: 50% 42vh; }
+.mnt-layer { height: 100vh; }
+.mnt-far { width: 118vw; height: 70vh; margin-left: -59vw; top: 4vh; transform-origin: 50% 38vh; -webkit-mask-image: linear-gradient(#000 55%, transparent 96%); mask-image: linear-gradient(#000 55%, transparent 96%); }
+.mnt-far img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 0; display: block; opacity: .55; }
+.mist { width: 190vw; margin-left: -95vw; height: 34vh; }
+.mist i { position: absolute; inset: 0; background:
+  radial-gradient(ellipse 22% 42% at 18% 55%, rgba(255,255,255,.96), rgba(255,255,255,0) 70%),
+  radial-gradient(ellipse 30% 48% at 47% 50%, rgba(255,255,255,.92), rgba(255,255,255,0) 72%),
+  radial-gradient(ellipse 24% 40% at 78% 58%, rgba(255,255,255,.95), rgba(255,255,255,0) 70%),
+  linear-gradient(rgba(255,255,255,0), rgba(255,255,255,.7) 45%, rgba(255,255,255,.7) 60%, rgba(255,255,255,0)); animation: mist 38s ease-in-out infinite alternate; }
+.mist:nth-of-type(even) i { animation-duration: 52s; animation-direction: alternate-reverse; }
+@keyframes mist { from { transform: translateX(-7%); } to { transform: translateX(7%); } }
+.mnt-line { left: calc(var(--gutter) + 1vw); top: 16vh; color: var(--wash-4); z-index: 31; }
+.seal { display: block; pointer-events: none; }
+.seal-small { position: absolute; left: var(--gutter); top: 60vh; width: clamp(34px, 3.2vw, 50px); height: auto; opacity: 0; z-index: 31; mix-blend-mode: multiply; }
+.veil { position: absolute; inset: 0; background: var(--paper); pointer-events: none; z-index: 30; }
+
+/* 3 brush */
+.brush-ink, .brush-bleed { position: absolute; top: 50%; left: 50%; height: min(88vh, 190vw); aspect-ratio: 1000 / 2100; transform: translate(-50%, -50%); will-change: transform; }
+.brush-ink svg, .brush-bleed svg { width: 100%; height: 100%; display: block; overflow: visible; }
+.brush-ghost { position: absolute; left: 50%; bottom: 0; width: max(118vw, 200vh); height: auto; transform: translateX(-50%); opacity: .85; mix-blend-mode: multiply; filter: grayscale(1); pointer-events: none; -webkit-mask-image: linear-gradient(transparent, #000 30%); mask-image: linear-gradient(transparent, #000 30%); }
+.brush-cap { left: calc(50% - min(88vh, 190vw) * .31); bottom: 12vh; font-weight: 400; color: var(--wash-3); letter-spacing: .6em; }
+
+/* 4 water */
+.water-ghost { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: .42; filter: grayscale(1) contrast(1.12) brightness(1.1); mix-blend-mode: multiply; pointer-events: none; }
+.water { position: absolute; inset: 0; background: transparent;
+  -webkit-mask-image: var(--brush-mask), linear-gradient(90deg, #000 var(--wipe, 0%), transparent calc(var(--wipe, 0%) + 14%));
+  mask-image: var(--brush-mask), linear-gradient(90deg, #000 var(--wipe, 0%), transparent calc(var(--wipe, 0%) + 14%));
+  -webkit-mask-size: var(--ms, 86vw) auto, 100% 100%; mask-size: var(--ms, 86vw) auto, 100% 100%;
+  -webkit-mask-position: center, 0 0; mask-position: center, 0 0;
+  -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
+  -webkit-mask-composite: source-in; mask-composite: intersect; }
+.water.bare { -webkit-mask-image: none; mask-image: none; }
+.water video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; filter: grayscale(1) contrast(1.12) brightness(1.1); mix-blend-mode: multiply; }
+#v-plume, #v-bloom { opacity: 0; }
+.water-line { right: calc(var(--gutter) + 1vw); top: 14vh; color: var(--ink); z-index: 2; }
+.water-line2 { left: calc(var(--gutter) + 1vw); top: 20vh; color: var(--ink); z-index: 2; }
+
+/* 5 plum */
+#plum { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.plum-ghost { position: absolute; right: -6vw; top: 4vh; width: min(70vw, 980px); height: auto; transform: scaleX(-1); filter: grayscale(1) blur(1.2px); opacity: 0; mix-blend-mode: multiply; }
+.plum-title { right: calc(var(--gutter) + 1vw); bottom: 6vh; top: auto; font-size: min(30vh, 26vw); opacity: 0; }
+
+/* 6 end */
+.enso { position: absolute; left: 50%; top: 47%; width: min(74vh, 86vw); aspect-ratio: 1; transform: translate(-50%, -50%); }
+.enso svg { width: 100%; height: 100%; display: block; overflow: visible; }
+.seal-big, .seal-bleed { position: absolute; width: min(15vh, 22vw); height: auto; left: calc(50% + min(74vh, 86vw) * .3); top: calc(47% + min(74vh, 86vw) * .2); opacity: 0; mix-blend-mode: multiply; transform-origin: 50% 50%; will-change: transform, opacity; }
+.seal-bleed { filter: blur(3px); }
+.magnet { position: absolute; left: 50%; top: 47%; width: 136px; height: 136px; margin: -68px 0 0 -68px; border-radius: 50%; display: grid; place-items: center; background: var(--ink); color: var(--paper); font: 800 1.02rem/1 var(--serif); letter-spacing: .12em; text-decoration: none; opacity: 0; pointer-events: none; will-change: transform, opacity; transition: background-color .3s, box-shadow .3s; }
+.magnet span { display: block; pointer-events: none; will-change: transform; }
+.magnet:hover { background: #2a2a2a; box-shadow: 0 0 0 10px rgba(0,0,0,.06); }
+.magnet:active { background: var(--wash-4); }
+.magnet:focus-visible { outline: 2px solid var(--seal); outline-offset: 8px; }
+
+@media (max-width: 760px) {
+  :root { --title: min(34vh, 40vw); }
+  .hero-title { right: var(--gutter); top: 10vh; }
+  .hero-line { right: calc(var(--gutter) + var(--title) + 9vw); top: 12vh; }
+  .brush-cap { left: var(--gutter); }
+  .plum-ghost { width: 120vw; right: -40vw; top: 18vh; }
+  .water-line2 { left: var(--gutter); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cue::after, .mist i { animation: none; }
+}

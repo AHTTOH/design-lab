@@ -1,0 +1,1052 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TOY TOWN</title>
+<meta name="description" content="하늘에 뜬 장난감 섬에 집이 떨어지고, 길이 그려지고, 해가 지고, 작은 자동차를 따라 골목을 달리는 스크롤 인터랙션 연습.">
+<meta property="og:title" content="TOY TOWN">
+<meta property="og:image" content="https://ahttoh.github.io/design-lab/assets/thumb/toytown.webp">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<style>
+  :root {
+    /* Every scene's --len is multiplied by this. 2026-09-28: the owner found 4,850vh too fast, so scenes start long and stretch 1.5x. */
+    --scroll-stretch: 1.5;
+    --sky: #4fb8ff; --navy: #1b2a6b;
+    --tomato: #ff4d3d; --cobalt: #2f5bff; --sun: #ffc92e; --mint: #2fe0a2; --pink: #ff7eb9; --white: #fff;
+    --title: clamp(4.6rem, 1rem + 15vw, 17rem);
+    --word: clamp(4rem, 1rem + 11vw, 13rem);
+    --stroke: .075em;
+    --drop: .07em;
+    --gutter: clamp(16px, 5vw, 80px);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--sky); color: var(--navy); font-family: 'Pretendard Variable', system-ui, sans-serif; overflow-x: clip; }
+  ::selection { background: var(--sun); color: var(--navy); }
+
+  #gl { position: fixed; inset: 0; width: 100%; height: 100%; display: block; z-index: 0; }
+  main { position: relative; z-index: 1; }
+  .scene { position: relative; height: calc(var(--len) * var(--scroll-stretch)); }
+  .pin { position: sticky; top: 0; height: 100vh; overflow: hidden; pointer-events: none; }
+
+  /* chunky toy lettering: candy fill, navy outline painted under the fill, hard navy drop */
+  .title, .word { margin: 0; font-family: 'Fredoka', 'Pretendard Variable', sans-serif; font-weight: 700; line-height: .9; letter-spacing: -.005em; white-space: nowrap; }
+  .ln { display: inline-block; }
+  .ch { display: inline-block; transform-origin: 50% 85%; will-change: transform; }
+  .ci { display: inline-block; color: var(--c); -webkit-text-stroke: var(--stroke) var(--navy); paint-order: stroke fill; text-shadow: 0 var(--drop) 0 var(--navy); }
+
+  .title { position: absolute; left: 0; right: 0; top: 9vh; text-align: center; font-size: var(--title); }
+  .title .ln + .ln { margin-left: .26em; }
+  .word { position: absolute; font-size: var(--word); }
+  .w-build { left: var(--gutter); top: 11vh; }
+  .w-night { left: var(--gutter); bottom: 9vh; }
+  .w-ride { right: var(--gutter); top: 11vh; text-align: right; }
+  .w-tiny { right: var(--gutter); bottom: 9vh; }
+  .w-night .ln, .w-ride .ln { display: block; }
+
+  .cue { position: absolute; left: 50%; bottom: 5vh; transform: translateX(-50%); display: grid; justify-items: center; gap: 10px; font-size: 14px; font-weight: 700; color: var(--navy); }
+  .ball { width: 18px; height: 18px; border-radius: 50%; background: var(--sun); border: 3px solid var(--navy); animation: hop 1.1s cubic-bezier(.3, 0, .5, 1) infinite alternate; }
+  @keyframes hop { from { transform: translateY(-16px); } to { transform: translateY(0) scale(1.15, .85); } }
+
+  .fin-copy { position: absolute; left: 0; right: 0; bottom: 8vh; display: grid; place-items: center; opacity: 0; }
+  .magnet { display: grid; place-items: center; width: 150px; height: 150px; border-radius: 50%; background: var(--tomato); border: 4px solid var(--navy); box-shadow: 0 8px 0 var(--navy); color: var(--white); font: 800 1.1rem 'Pretendard Variable', sans-serif; text-decoration: none; will-change: transform; transition: box-shadow .15s, background-color .2s; }
+  .magnet span { pointer-events: none; will-change: transform; }
+  .magnet:hover { background: var(--cobalt); }
+  .magnet:active { box-shadow: 0 2px 0 var(--navy); }
+  .magnet:focus-visible { outline: 4px solid var(--sun); outline-offset: 6px; }
+
+  @media (max-width: 760px) {
+    :root { --title: 23vw; --word: 21vw; }
+    .title .ln { display: block; }
+    .title .ln + .ln { margin-left: 0; }
+    .title { top: 7vh; }
+    .magnet { width: 128px; height: 128px; }
+  }
+  /* reduced motion: one static finished town, every word visible, one screen per scene */
+  .reduce .scene { height: 100vh; }
+  .reduce .cue { display: none; }
+  .reduce .fin-copy { opacity: 1; }
+  .reduce .pin { pointer-events: none; }
+  .reduce .fin-copy { pointer-events: auto; }
+  @media (prefers-reduced-motion: reduce) { .ball { animation: none; } }
+</style>
+</head>
+<body>
+<canvas id="gl" aria-hidden="true"></canvas>
+
+<main>
+  <section class="scene" id="s-hero" style="--len:900vh">
+    <div class="pin">
+      <h1 class="title" id="title" data-split data-label="TOY TOWN">TOY|TOWN</h1>
+      <div class="cue" id="cue" aria-hidden="true"><span class="ball"></span>스크롤</div>
+    </div>
+  </section>
+  <section class="scene" id="s-build" style="--len:1500vh">
+    <div class="pin"><h2 class="word w-build" id="w-build" data-split>BUILD</h2></div>
+  </section>
+  <section class="scene" id="s-night" style="--len:1300vh">
+    <div class="pin"><h2 class="word w-night" id="w-night" data-split data-label="GOOD NIGHT">GOOD|NIGHT</h2></div>
+  </section>
+  <section class="scene" id="s-ride" style="--len:1300vh">
+    <div class="pin"><h2 class="word w-ride" id="w-ride" data-split>RIDE</h2></div>
+  </section>
+  <section class="scene" id="s-tiny" style="--len:1100vh">
+    <div class="pin"><h2 class="word w-tiny" id="w-tiny" data-split>TINY</h2></div>
+  </section>
+  <section class="scene" id="s-end" style="--len:900vh">
+    <div class="pin">
+      <h2 class="title" id="fin-title" data-split data-label="TOY TOWN">TOY|TOWN</h2>
+      <div class="fin-copy" id="fin-copy"><a class="magnet" id="magnet" href="../"><span>목록으로</span></a></div>
+    </div>
+  </section>
+</main>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/lenis@1.1.13/dist/lenis.min.js"></script>
+<script type="module">
+import * as THREE from 'three';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+/* ───────── config ───────── */
+const CONFIG = {
+  dprMax: 1.5, mobileBreak: 760, lenisLerp: 0.08, seed: 11,
+  color: {
+    navy: '#1b2a6b', tomato: '#ff4d3d', cobalt: '#2f5bff', sun: '#ffc92e', mint: '#2fe0a2', pink: '#ff7eb9', white: '#ffffff',
+    grass: '#5fd35f', sea: '#35a8ff', sand: '#ffd84d', road: '#58627c', dash: '#ffffff', bed: '#ff9ec7', trunk: '#b5653a', skin: '#ffc9a3',
+    glassDay: '#8fd6ff', glassOff: '#434a9e', glassOn: '#ffd84a', bulbOff: '#dfe6f5', bulbOn: '#fff06a', lightDay: '#ffffff', lightNight: '#fff27a',
+  },
+  candy: ['tomato', 'cobalt', 'sun', 'mint', 'pink'],
+  letters: ['var(--tomato)', 'var(--cobalt)', 'var(--sun)', 'var(--mint)', 'var(--pink)'],
+  material: { roughness: 0.8, metalness: 0 },
+  shadow: { map: 2048, mapMobile: 1024, extent: 17, bias: -0.0004, normalBias: 0.03 },
+  island: {
+    land: 10.2, landH: 0.8, landBevel: 0.3, beach: 10.9, beachTop: -0.12, cakeGlow: 0.45, sea: 14, seaTop: -0.3, seaH: 0.5,
+    // candy layer cake under the sea plate: [top radius, bottom radius, height, colour]
+    cake: [[14, 13.2, 0.9, 'tomato'], [13.2, 12, 0.9, 'pink'], [12, 10.4, 0.9, 'sun'], [10.4, 7.6, 1.2, 'mint'], [7.6, 1.2, 3.2, 'cobalt']],
+  },
+  roads: { ring: [5.8, 7.2], lane: 6.5, arm: 5.8, width: 1.2, plaza: 2.3, dashes: 36, y: 0.015 },
+  track: { r: 9.1, rails: [[8.93, 8.99], [9.21, 9.27]], bed: [8.78, 9.42], sleepers: 72, units: 4, gap: 1.08, speed: 0.12 },
+  cars: { lane: 6.85, speed: 0.26, phases: [0.3, 1.25, 2.2, 3.1, 4.05, 5.1], colors: ['cobalt', 'sun', 'mint', 'pink', 'white', 'cobalt'], hero: ['tomato', 'sun'] },
+  lamps: { ringR: 7.42, armAt: 4.1, armSide: 0.86, height: 1.15 },
+  windmill: { angle: 45, r: 8.05, spin: 1.2 },
+  boats: [{ r: 11.7, phase: 0.4, speed: 0.07, hull: 'white', sail: 'sun' }, { r: 12.6, phase: 2.6, speed: -0.05, hull: 'tomato', sail: 'pink' }, { r: 13.2, phase: 4.4, speed: 0.045, hull: 'cobalt', sail: 'mint' }],
+  clouds: { count: 8, puffs: 7, r: [12, 19], y: [-5, 7], drift: 0.012 },
+  people: { count: 44, r: [1.05, 2.15], speed: [0.22, 0.5] },
+  balloons: { count: 28 },
+  // build timeline, all in build-scene progress
+  build: {
+    boats: [0.04, 0.18], ring: [0.03, 0.14], arms: [0.1, 0.2], plaza: [0.18, 0.24], houses: [0.22, 0.7], houseDur: 0.045, fall: 0.42, dropH: 16,
+    trees: [0.42, 0.84], treeDur: 0.05, lamps: [0.58, 0.74], lampDur: 0.04, windmill: [0.7, 0.78], track: [0.74, 0.84], train: [0.83, 0.9],
+    cars: [0.86, 0.93], people: [0.88, 0.97],
+  },
+  cam: { fitR: 14.5, portraitFit: 0.86, near: 0.5, far: 2400, sky: 900, stars: 800 },
+  hero: { az: [-0.35, 0.55], el: [0.2, 0.64], fit: [1.12, 1.0], ty: [0.8, 1.2], spin: 0.1, curtain: [0.03, 0.4] },
+  buildCam: { az: [0.55, 1.7], el: [0.64, 0.58], fit: [1.0, 0.9], ty: [1.2, -0.2] },
+  nightCam: { az: [1.7, 2.2], el: [0.58, 0.52], fit: [0.9, 0.96], ty: [-0.2, -0.2] },
+  night: { sunset: [0.05, 0.6], sky: [0.3, 0.7], windows: [0.35, 0.8], lamps: [0.45, 0.62], moon: [0.5, 0.95], stars: [0.55, 0.8] },
+  ride: {
+    lane: 6.15, camR: 6.45, theta0: 2.4, turns: 0.95, behind: 2.3, ahead: 2.4, height: [0.95, 1.6], waves: 1.5, lookY: 0.35, fov: 52,
+    blendIn: [0, 0.14], drive: [0.08, 0.9], blendOut: [0.86, 1], dawn: [0.5, 0.9],
+  },
+  tiny: { target: 0.3, az: [0.8, 1.9], el: [0.88, 0.6], dist: [10, 7], fov: 30, portrait: 1.25, tilt: [0, 0.1], band: 0.07, soft: 0.22, maxPx: 14, sat: 1.1 },
+  end: { pull: [0, 0.45], tiltOff: [0, 0.2], az: 0.9, el: 0.68, fit: 1.12, ty: 3.4, spin: 0.05, balloons: [0.15, 0.6], sun: [0.2, 0.45] },
+  sunArc: { rest: 0.18, x: [-0.85, 0.95], yBase: 0.25, yArc: 0.55, ySet: -0.55, size: 0.075, depth: 1.5 },
+  moonArc: { x: [-0.9, -0.55], y: [-0.4, 0.62], size: 0.055 },
+  light: {
+    day: { pos: [10, 16, 8], color: '#fff6e8', i: 2.3, hemi: ['#d8f2ff', '#8ee08e', 1.75] },
+    sunset: { pos: [-14, 4, 5], color: '#ff9a5a', i: 1.6 },
+    night: { pos: [-6, 12, 10], color: '#9fb0ff', i: 0.6, hemi: ['#7d7fe6', '#343889', 0.95] },
+  },
+  sky: { day: ['#3aa6ff', '#a6e0ff'], sunset: ['#ff6fae', '#ffb35c'], night: ['#26298a', '#6454d6'] },
+  words: {
+    title: { wobble: [0.08, 0.28, 0.45, 0.52], drop: [0.5, 0.2], cue: [0.02, 0.06] },
+    'w-build': { in: [0.02, 0.1], out: [0.2, 0.26], stagger: 0.04 },
+    'w-night': { in: [0.72, 0.8], out: [0.93, 0.98], stagger: 0.025 },
+    'w-ride': { in: [0.16, 0.24], out: [0.36, 0.42], stagger: 0.04 },
+    'w-tiny': { in: [0.08, 0.16], out: [0.42, 0.48], stagger: 0.04 },
+    'fin-title': { in: [0.3, 0.42], stagger: 0.035 },
+    finCopy: [0.52, 0.6],
+  },
+};
+
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const TAU = Math.PI * 2, DEG = Math.PI / 180;
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const clamp01 = (v) => clamp(v, 0, 1);
+const seg = (p, a, b) => clamp01((p - a) / (b - a));
+const segR = (p, r) => seg(p, r[0], r[1]);
+const smooth = (x) => x * x * (3 - 2 * x);
+const lerp = (a, b, t) => a + (b - a) * t;
+const lerpR = (r, t) => lerp(r[0], r[1], t);
+const bump = (x) => Math.sin(Math.PI * clamp01(x));
+const backOut = (t, s = 1.7) => 1 + (s + 1) * (t - 1) ** 3 + s * (t - 1) ** 2;
+const backIn = (t, s = 1.7) => (s + 1) * t ** 3 - s * t ** 2;
+const elasticOut = (t) => (t <= 0 ? 0 : t >= 1 ? 1 : 2 ** (-10 * t) * Math.sin((t * 10 - 0.75) * (TAU / 3)) + 1);
+const $ = (s) => document.querySelector(s);
+const $$ = (s) => [...document.querySelectorAll(s)];
+const dprNow = () => Math.min(devicePixelRatio || 1, CONFIG.dprMax);
+const isMobile = () => innerWidth < CONFIG.mobileBreak;
+/** Deterministic PRNG so the town is laid out the same on every load. */
+function mulberry32(seed) { let a = seed; return () => { a |= 0; a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+const rnd = mulberry32(CONFIG.seed);
+const rr = (a, b) => a + rnd() * (b - a);
+const pick = (arr) => arr[Math.floor(rnd() * arr.length)];
+const col = (name) => { const hex = CONFIG.color[name]; if (!hex) throw new Error(`unknown colour ${name}`); return new THREE.Color(hex); };
+
+if (reduce) document.documentElement.classList.add('reduce');
+
+/* ───────── scroll engine ───────── */
+gsap.registerPlugin(ScrollTrigger);
+const lenis = reduce ? null : new Lenis({ lerp: CONFIG.lenisLerp });
+if (lenis) { lenis.on('scroll', ScrollTrigger.update); gsap.ticker.add((t) => lenis.raf(t * 1000)); gsap.ticker.lagSmoothing(0); }
+const velocity = () => (lenis ? lenis.velocity : 0);
+
+const SCENES = ['hero', 'build', 'night', 'ride', 'tiny', 'end'];
+// 3D progress runs from this scene's top to the next scene's top, so scenes hand off with no dead zone.
+// Text progress runs while the sticky pin is fully on screen.
+const worldST = {}, textST = {};
+SCENES.forEach((k, i) => {
+  const trigger = $(`#s-${k}`), last = i === SCENES.length - 1;
+  worldST[k] = ScrollTrigger.create({ trigger, start: 'top top', end: last ? 'bottom bottom' : 'bottom top' });
+  textST[k] = ScrollTrigger.create({ trigger, start: 'top top', end: 'bottom bottom' });
+});
+const progressOf = (map) => Object.fromEntries(SCENES.map((k) => [k, reduce ? 1 : map[k].progress]));
+
+/* ───────── lettering ───────── */
+function split(el) {
+  const lines = el.textContent.split('|');
+  el.setAttribute('aria-label', el.dataset.label || lines.join(' '));
+  let k = 0;
+  const colours = CONFIG.letters;
+  el.innerHTML = lines.map((l) => `<span class="ln" aria-hidden="true">${[...l].map((c) => `<span class="ch"><span class="ci" style="--c:${colours[k++ % colours.length]}">${c}</span></span>`).join('')}</span>`).join('');
+  return [...el.querySelectorAll('.ch')];
+}
+const letters = Object.fromEntries($$('[data-split]').map((el) => [el.id, split(el)]));
+
+/** Scroll-driven pop: elastic scale in, back-in shrink out, a little tilt either way. */
+function popWord(chs, q, cfg) {
+  const n = chs.length;
+  chs.forEach((c, i) => {
+    const k = n > 1 ? i / (n - 1) : 0;
+    const tin = seg(q, cfg.in[0] + k * cfg.stagger, cfg.in[1] + k * cfg.stagger);
+    const tout = cfg.out ? seg(q, cfg.out[0] + k * cfg.stagger * 0.5, cfg.out[1] + k * cfg.stagger * 0.5) : 0;
+    const s = Math.max(0, elasticOut(tin) * (1 - Math.max(0, backIn(tout)) * 1.02));
+    const sign = i % 2 ? 1 : -1;
+    const y = (1 - backOut(tin)) * 0.5 - Math.sin(tout * Math.PI) * 0.25;
+    const r = sign * (1 - tin) * 24 + sign * tout * 30;
+    c.style.visibility = s > 0.002 ? 'visible' : 'hidden';
+    c.style.transform = `translateY(${y.toFixed(3)}em) rotate(${r.toFixed(2)}deg) scale(${s.toFixed(4)})`;
+  });
+}
+
+/** Hero title: popped in on load, wobbles and hops with the scroll, then drops out letter by letter. */
+function heroTitle(chs, q) {
+  const cfg = CONFIG.words.title, amp = smooth(seg(q, cfg.wobble[0], cfg.wobble[1])) * (1 - smooth(seg(q, cfg.wobble[2], cfg.wobble[3])));
+  chs.forEach((c, i) => {
+    const w = q * 42 + i * 1.3;
+    const start = cfg.drop[0] + i * 0.028, fall = seg(q, start, start + cfg.drop[1]);
+    const sign = i % 2 ? 1 : -1;
+    const y = -Math.abs(Math.sin(w)) * 0.12 * amp + fall * fall * 6;
+    const r = Math.sin(w) * 9 * amp + sign * fall * 50;
+    c.style.transform = `translateY(${y.toFixed(3)}em) rotate(${r.toFixed(2)}deg)`;
+  });
+  $('#cue').style.opacity = 1 - seg(q, cfg.cue[0], cfg.cue[1]);
+}
+
+/* ───────── renderer, camera, lights ───────── */
+const canvas = $('#gl');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+renderer.toneMapping = THREE.NoToneMapping;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(18, 1, CONFIG.cam.near, CONFIG.cam.far);
+const world = new THREE.Group();
+scene.add(world);
+
+const hemi = new THREE.HemisphereLight(CONFIG.light.day.hemi[0], CONFIG.light.day.hemi[1], CONFIG.light.day.hemi[2]);
+scene.add(hemi);
+const sunLight = new THREE.DirectionalLight(CONFIG.light.day.color, CONFIG.light.day.i);
+sunLight.castShadow = true;
+{
+  const s = CONFIG.shadow, c = sunLight.shadow.camera;
+  c.left = -s.extent; c.right = s.extent; c.top = s.extent; c.bottom = -s.extent; c.near = 2; c.far = 90;
+  sunLight.shadow.bias = s.bias; sunLight.shadow.normalBias = s.normalBias;
+  const size = isMobile() ? s.mapMobile : s.map;
+  sunLight.shadow.mapSize.set(size, size);
+}
+scene.add(sunLight, sunLight.target);
+
+/* sky: a screen-space gradient on a dome that rides with the camera */
+const skyU = { uTop: { value: new THREE.Color() }, uBot: { value: new THREE.Color() }, uH: { value: 1 } };
+const sky = new THREE.Mesh(new THREE.SphereGeometry(CONFIG.cam.sky, 16, 12), new THREE.ShaderMaterial({
+  uniforms: skyU, side: THREE.BackSide, depthWrite: false, depthTest: false,
+  vertexShader: `void main(){ gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.); }`,
+  fragmentShader: `uniform vec3 uTop, uBot; uniform float uH;
+    void main(){ float t = clamp(gl_FragCoord.y / uH, 0., 1.); gl_FragColor = vec4(mix(uBot, uTop, smoothstep(0., 1., t)), 1.);
+    #include <colorspace_fragment>
+    }`,
+}));
+sky.renderOrder = -10; sky.frustumCulled = false;
+scene.add(sky);
+
+const stars = (() => {
+  const n = 420, pos = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) {
+    const v = new THREE.Vector3(rr(-1, 1), rr(-1, 1), rr(-1, 1)).normalize().multiplyScalar(CONFIG.cam.stars);
+    pos.set([v.x, v.y, v.z], i * 3);
+  }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  const p = new THREE.Points(g, new THREE.PointsMaterial({ color: 0xffffff, size: 2.4, sizeAttenuation: false, transparent: true, opacity: 0, depthWrite: false }));
+  p.renderOrder = -9; p.frustumCulled = false;
+  scene.add(p);
+  return p;
+})();
+
+/** Soft round sprite texture, drawn in memory so file:// never taints the canvas. */
+function glowTexture() {
+  const c = document.createElement('canvas'); c.width = c.height = 64;
+  const g = c.getContext('2d'), grd = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  grd.addColorStop(0, 'rgba(255,255,255,1)'); grd.addColorStop(0.35, 'rgba(255,255,255,.45)'); grd.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = grd; g.fillRect(0, 0, 64, 64);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+const GLOW = glowTexture();
+
+function disc(colour, glowColour) {
+  const g = new THREE.Group();
+  const halo = new THREE.Mesh(new THREE.PlaneGeometry(4.2, 4.2), new THREE.MeshBasicMaterial({ color: glowColour, map: GLOW, transparent: true, opacity: 0.55, depthWrite: false }));
+  const body = new THREE.Mesh(new THREE.CircleGeometry(1, 48), new THREE.MeshBasicMaterial({ color: colour }));
+  body.position.z = 0.01;
+  g.add(halo, body);
+  scene.add(g);
+  return g;
+}
+const sunDisc = disc(CONFIG.color.sun, '#fff3a0');
+const moonDisc = disc('#fff1a8', '#c9d4ff');
+
+/* ───────── materials and instancing helpers ───────── */
+const matCache = new Map();
+const clay = (name) => {
+  if (!matCache.has(name)) matCache.set(name, new THREE.MeshStandardMaterial({ color: name === 'inst' ? 0xffffff : col(name), ...CONFIG.material }));
+  return matCache.get(name);
+};
+const _m = new THREE.Matrix4(), _p = new THREE.Vector3(), _q = new THREE.Quaternion(), _s = new THREE.Vector3(), _e = new THREE.Euler(), _c = new THREE.Color();
+const UP = new THREE.Vector3(0, 1, 0);
+
+function mesh(geo, name, parent = world, { cast = true, receive = true } = {}) {
+  const m = new THREE.Mesh(geo, typeof name === 'string' ? clay(name) : name);
+  m.castShadow = cast; m.receiveShadow = receive;
+  parent.add(m);
+  return m;
+}
+function inst(geo, count, { material = clay('inst'), cast = true, receive = true } = {}) {
+  const m = new THREE.InstancedMesh(geo, material, count);
+  m.castShadow = cast; m.receiveShadow = receive; m.frustumCulled = false;
+  m.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  for (let i = 0; i < count; i++) { m.setMatrixAt(i, _m.makeScale(0, 0, 0)); m.setColorAt(i, _c.set(0xffffff)); }
+  world.add(m);
+  return m;
+}
+/** Write one instance: position, yaw (or quaternion), scale. */
+function put(m, i, x, y, z, rot, sx, sy = sx, sz = sx) {
+  if (typeof rot === 'number') _q.setFromAxisAngle(UP, rot); else _q.copy(rot);
+  m.setMatrixAt(i, _m.compose(_p.set(x, y, z), _q, _s.set(sx, sy, sz)));
+}
+const hide = (m, i) => m.setMatrixAt(i, _m.makeScale(0, 0, 0));
+const yawFromTangent = (tx, tz) => Math.atan2(-tz, tx);
+
+/** Disc with rounded rim: lathe profile runs bottom to top so normals face out. */
+function roundedDisc(r, h, bevel, segs = 96) {
+  const pts = [new THREE.Vector2(0, -h)], n = 6;
+  for (let i = 0; i <= n; i++) { const a = (i / n) * (Math.PI / 2); pts.push(new THREE.Vector2(r - bevel + Math.sin(a) * bevel, -h + bevel - Math.cos(a) * bevel)); }
+  for (let i = 0; i <= n; i++) { const a = (i / n) * (Math.PI / 2); pts.push(new THREE.Vector2(r - bevel + Math.cos(a) * bevel, -bevel + Math.sin(a) * bevel)); }
+  pts.push(new THREE.Vector2(0, 0));
+  return new THREE.LatheGeometry(pts, segs);
+}
+
+/* ───────── island ───────── */
+function buildIsland() {
+  const c = CONFIG.island;
+  mesh(roundedDisc(c.land, c.landH, c.landBevel), 'grass');
+  const beach = mesh(roundedDisc(c.beach, 0.5, 0.2), 'sand'); beach.position.y = c.beachTop;
+  const sea = mesh(roundedDisc(c.sea, c.seaH, 0.22), new THREE.MeshStandardMaterial({ color: col('sea'), roughness: 0.65, metalness: 0 })); sea.position.y = c.seaTop;
+  let y = c.seaTop - c.seaH;
+  c.cake.forEach(([rt, rb, h, name]) => {
+    // the underside only sees the hemisphere's ground colour, so it glows a little on its own to stay candy-bright
+    const m = mesh(new THREE.CylinderGeometry(rt, rb, h, 72), new THREE.MeshStandardMaterial({ color: col(name), emissive: col(name), emissiveIntensity: c.cakeGlow, ...CONFIG.material }), world, { cast: false, receive: true });
+    m.position.y = y - h / 2; y -= h;
+  });
+}
+
+/* ───────── roads, plaza, fountain ───────── */
+function buildRoads() {
+  const c = CONFIG.roads;
+  const ringGeo = new THREE.RingGeometry(c.ring[0], c.ring[1], 144, 1); ringGeo.rotateX(-Math.PI / 2);
+  const ring = mesh(ringGeo, 'road', world, { cast: false }); ring.position.y = c.y;
+  const ringCount = ringGeo.index.count;
+  const armGeo = new THREE.PlaneGeometry(c.arm, c.width); armGeo.rotateX(-Math.PI / 2); armGeo.translate(c.arm / 2, 0, 0);
+  const arms = [0, 90, 180, 270].map((deg) => {
+    const a = deg * DEG, m = mesh(armGeo, 'road', world, { cast: false });
+    // the arm starts at the ring's inner edge and points at the centre
+    m.position.set(Math.cos(a) * c.arm, c.y + 0.002, Math.sin(a) * c.arm);
+    m.rotation.y = yawFromTangent(-Math.cos(a), -Math.sin(a));
+    return m;
+  });
+  const dashes = inst(new THREE.BoxGeometry(0.34, 0.02, 0.07), c.dashes, { material: clay('dash'), cast: false });
+  const plaza = new THREE.Group(); world.add(plaza);
+  mesh(new THREE.CylinderGeometry(c.plaza, c.plaza, 0.06, 64), 'pink', plaza, { cast: false }).position.y = 0.03;
+  mesh(new THREE.CylinderGeometry(0.8, 0.88, 0.3, 40), 'white', plaza).position.y = 0.2;
+  mesh(new THREE.CylinderGeometry(0.66, 0.66, 0.06, 40), 'cobalt', plaza, { cast: false }).position.y = 0.33;
+  mesh(new THREE.CylinderGeometry(0.08, 0.1, 0.7, 12), 'white', plaza).position.y = 0.55;
+  const spout = mesh(new THREE.SphereGeometry(0.17, 20, 14), 'mint', plaza); spout.position.y = 0.95;
+  return { ring, ringCount, arms, dashes, plaza, spout };
+}
+
+/* ───────── houses ───────── */
+function gableGeometry() {
+  // unit gable: square base [-.5,.5] at y=0, ridge along x at y=1
+  const A = [-0.5, 0, -0.5], B = [0.5, 0, -0.5], C = [0.5, 0, 0.5], D = [-0.5, 0, 0.5], E = [-0.5, 1, 0], F = [0.5, 1, 0];
+  const tris = [D, C, F, D, F, E, B, A, E, B, E, F, A, D, E, C, B, F];
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(tris.flat(), 3)); g.computeVertexNormals();
+  return g;
+}
+function layoutHouses() {
+  const slots = [], inner = [[2.3, 2.3], [2.3, 3.55], [3.55, 2.3], [3.55, 3.55], [2.15, 4.5], [4.5, 2.15]];
+  const quads = [[1, 1], [-1, 1], [-1, -1], [1, -1]];
+  const treeSlots = [];
+  quads.forEach(([sx, sz], qi) => inner.forEach(([a, b], si) => {
+    const s = { x: a * sx, z: b * sz, max: 0.9, rot: rnd() < 0.5 ? 0 : Math.PI / 2, tall: si === 0 };
+    if (si === (qi % 2 ? 4 : 5)) treeSlots.push(s); else slots.push(s);
+  }));
+  for (let k = 0; k < 8; k++) { const a = (22.5 + 45 * k) * DEG; slots.push({ x: Math.cos(a) * 7.9, z: Math.sin(a) * 7.9, max: 0.95, rot: -a, tall: false }); }
+  const bodies = ['tomato', 'cobalt', 'sun', 'mint', 'pink', 'white'], roofs = ['tomato', 'cobalt', 'sun', 'pink', 'mint', 'navy'];
+  const houses = slots.map((s) => {
+    const body = pick(bodies);
+    let roof = pick(roofs); while (roof === body) roof = pick(roofs);
+    const w = rr(0.7, s.max), d = rr(0.7, s.max), h = s.tall ? rr(1.6, 2.4) : rr(0.8, 1.7);
+    return { ...s, w, d, h, body, roof, gable: rnd() < 0.5, rh: 0.35 + 0.45 * Math.min(w, d), ang: Math.atan2(s.z, s.x) };
+  });
+  // spiral order: inner ring first, sweeping round, so the town fills in like a turntable
+  houses.sort((a, b) => (Math.hypot(a.x, a.z) > 6) - (Math.hypot(b.x, b.z) > 6) || ((a.ang + TAU) % TAU) - ((b.ang + TAU) % TAU));
+  const b = CONFIG.build;
+  houses.forEach((h, i) => { h.t0 = lerp(b.houses[0], b.houses[1] - b.houseDur * 1.3, i / (houses.length - 1)); });
+  return { houses, treeSlots };
+}
+function windowsFor(houses) {
+  const wins = [];
+  houses.forEach((h, hi) => {
+    const rows = h.h > 1.5 ? [0.33, 0.72] : [0.55];
+    const faces = [{ yaw: 0, n: [0, 1], len: h.w, off: h.d / 2 }, { yaw: Math.PI, n: [0, -1], len: h.w, off: h.d / 2 },
+      { yaw: Math.PI / 2, n: [1, 0], len: h.d, off: h.w / 2 }, { yaw: -Math.PI / 2, n: [-1, 0], len: h.d, off: h.w / 2 }];
+    faces.forEach((f, fi) => {
+      const across = f.len > 0.8 ? [-0.2, 0.2] : [0];
+      const useRows = fi === 0 ? rows.slice(1) : rows;
+      if (fi === 0) wins.push({ hi, f, u: 0, y: 0.19, w: 0.2, hgt: 0.36, door: true, thr: 2 });
+      useRows.forEach((ry) => across.forEach((u) => wins.push({ hi, f, u, y: ry * h.h, w: 0.17, hgt: 0.22, door: false, thr: rnd() })));
+    });
+  });
+  return wins;
+}
+/** Fall with stretch, land with a damped squash, tiny hop. Returns null before the drop starts. */
+function dropPose(t, H) {
+  if (t <= 0) return null;
+  const f = CONFIG.build.fall;
+  if (t < f) { const u = t / f; return { y: H * (1 - u * u), sy: 1 + 0.25 * u }; }
+  const u = (t - f) / (1 - f), e = Math.exp(-5 * u);
+  return { y: Math.abs(Math.sin(u * TAU)) * 0.35 * e, sy: 1 - 0.32 * e * Math.cos(u * Math.PI * 4) };
+}
+function buildHouses() {
+  const { houses, treeSlots } = layoutHouses(), wins = windowsFor(houses);
+  const bodyM = inst(new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0), houses.length);
+  const pyr = new THREE.ConeGeometry(Math.SQRT1_2, 1, 4).rotateY(Math.PI / 4).translate(0, 0.5, 0);
+  const pyrM = inst(pyr, houses.length), gabM = inst(gableGeometry(), houses.length);
+  const winM = inst(new THREE.PlaneGeometry(1, 1), wins.length, { material: new THREE.MeshBasicMaterial({ color: 0xffffff }), cast: false, receive: false });
+  houses.forEach((h, i) => { bodyM.setColorAt(i, col(h.body)); pyrM.setColorAt(i, col(h.roof)); gabM.setColorAt(i, col(h.roof)); });
+  const poses = houses.map(() => null);
+  let lastB = -1, lastL = -1;
+  const winOn = col('glassOn'), winOff = col('glassOff'), winDay = col('glassDay'), door = col('navy');
+  function update(b) {
+    if (b === lastB) return;
+    lastB = b;
+    const dur = CONFIG.build.houseDur, H = CONFIG.build.dropH;
+    houses.forEach((h, i) => {
+      const body = dropPose(seg(b, h.t0, h.t0 + dur), H), roof = dropPose(seg(b, h.t0 + dur * 0.3, h.t0 + dur * 1.3), H);
+      poses[i] = body;
+      if (!body) { hide(bodyM, i); hide(pyrM, i); hide(gabM, i); return; }
+      const sxz = 1 + (1 - body.sy) * 0.5;
+      put(bodyM, i, h.x, body.y, h.z, h.rot, h.w * sxz, h.h * body.sy, h.d * sxz);
+      const rm = h.gable ? gabM : pyrM, other = h.gable ? pyrM : gabM;
+      hide(other, i);
+      if (!roof) { hide(rm, i); return; }
+      const rsx = 1 + (1 - roof.sy) * 0.5;
+      put(rm, i, h.x, body.y + h.h * body.sy + roof.y, h.z, h.rot, h.w * 1.14 * rsx, h.rh * roof.sy, h.d * 1.14 * rsx);
+    });
+    wins.forEach((w, i) => {
+      const h = houses[w.hi], p = poses[w.hi];
+      if (!p) { hide(winM, i); return; }
+      const sxz = 1 + (1 - p.sy) * 0.5, cs = Math.cos(h.rot), sn = Math.sin(h.rot);
+      // local point on the face, then the house yaw (rotation.y maps local x,z to x cos + z sin, -x sin + z cos)
+      const lx = (w.f.n[0] * (w.f.off + 0.012) + w.f.n[1] * w.u) * sxz, lz = (w.f.n[1] * (w.f.off + 0.012) - w.f.n[0] * w.u) * sxz;
+      put(winM, i, h.x + lx * cs + lz * sn, p.y + w.y * p.sy, h.z - lx * sn + lz * cs, h.rot + w.f.yaw, w.w, w.hgt * p.sy, 1);
+    });
+    bodyM.instanceMatrix.needsUpdate = pyrM.instanceMatrix.needsUpdate = gabM.instanceMatrix.needsUpdate = winM.instanceMatrix.needsUpdate = true;
+  }
+  function light(level, dayness) {
+    const key = Math.round(level * 200) + Math.round(dayness * 50) * 1000;
+    if (key === lastL) return;
+    lastL = key;
+    wins.forEach((w, i) => {
+      if (w.door) { winM.setColorAt(i, door); return; }
+      _c.copy(winDay).lerp(winOff, 1 - dayness);
+      if (level > w.thr) _c.copy(winOn);
+      winM.setColorAt(i, _c);
+    });
+    winM.instanceColor.needsUpdate = true;
+  }
+  return { update, light, treeSlots, houses };
+}
+
+/* ───────── trees ───────── */
+function buildTrees(treeSlots) {
+  const trees = [];
+  const n = 30;
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * TAU + rr(-0.06, 0.06), r = rr(9.55, 9.85);
+    if (Math.abs(((a / DEG - CONFIG.windmill.angle + 540) % 360) - 180) < 6) continue;
+    trees.push({ x: Math.cos(a) * r, z: Math.sin(a) * r, s: rr(0.55, 0.8) });
+  }
+  treeSlots.forEach((s) => [[-0.3, -0.25], [0.3, -0.2], [0, 0.32]].forEach(([dx, dz]) => trees.push({ x: s.x + dx, z: s.z + dz, s: rr(0.7, 0.95) })));
+  [135, 225, 315].forEach((deg) => { const a = deg * DEG; [-0.35, 0.35].forEach((o) => trees.push({ x: Math.cos(a) * 7.9 - Math.sin(a) * o, z: Math.sin(a) * 7.9 + Math.cos(a) * o, s: rr(0.8, 1) })); });
+  const pines = ['#2fbf71', '#1fa463', '#2fe0a2'], rounds = ['#5fd35f', '#ff8dc7', '#ffc92e', '#2fe0a2', '#43c24a'];
+  trees.forEach((t) => { t.pine = rnd() < 0.5; t.colour = new THREE.Color(pick(t.pine ? pines : rounds)); });
+  trees.sort((a, b) => Math.hypot(a.x, a.z) - Math.hypot(b.x, b.z));
+  const b = CONFIG.build;
+  trees.forEach((t, i) => { t.t0 = lerp(b.trees[0], b.trees[1] - b.treeDur, i / (trees.length - 1)); });
+  const trunk = inst(new THREE.CylinderGeometry(0.07, 0.09, 1, 8).translate(0, 0.5, 0), trees.length, { material: clay('trunk') });
+  const cone = inst(new THREE.ConeGeometry(0.42, 1.05, 8).translate(0, 0.52, 0), trees.length);
+  const ball = inst(new THREE.SphereGeometry(0.42, 16, 12), trees.length);
+  trees.forEach((t, i) => { cone.setColorAt(i, t.colour); ball.setColorAt(i, t.colour); });
+  let lastB = -1;
+  function update(bp) {
+    if (bp === lastB) return;
+    lastB = bp;
+    trees.forEach((t, i) => {
+      const k = elasticOut(seg(bp, t.t0, t.t0 + b.treeDur)) * t.s;
+      if (k <= 0) { hide(trunk, i); hide(cone, i); hide(ball, i); return; }
+      put(trunk, i, t.x, 0, t.z, 0, k, k * 0.42, k);
+      if (t.pine) { put(cone, i, t.x, k * 0.36, t.z, 0, k); hide(ball, i); } else { put(ball, i, t.x, k * 0.72, t.z, 0, k); hide(cone, i); }
+    });
+    trunk.instanceMatrix.needsUpdate = cone.instanceMatrix.needsUpdate = ball.instanceMatrix.needsUpdate = true;
+  }
+  return { update };
+}
+
+/* ───────── street lamps ───────── */
+function buildLamps() {
+  const c = CONFIG.lamps, list = [];
+  for (let k = 0; k < 8; k++) { const a = k * 45 * DEG; list.push([Math.cos(a) * c.ringR, Math.sin(a) * c.ringR]); }
+  [[1, 0], [0, 1], [-1, 0], [0, -1]].forEach(([dx, dz]) => [-1, 1].forEach((s) => list.push([dx * c.armAt - dz * s * c.armSide, dz * c.armAt + dx * s * c.armSide])));
+  const b = CONFIG.build;
+  const lamps = list.map(([x, z], i) => ({ x, z, t0: lerp(b.lamps[0], b.lamps[1] - b.lampDur, i / (list.length - 1)), thr: rr(0, 0.9) }));
+  const pole = inst(new THREE.CylinderGeometry(0.035, 0.05, 1, 8).translate(0, 0.5, 0), lamps.length, { material: clay('cobalt') });
+  const bulb = inst(new THREE.SphereGeometry(0.11, 14, 10), lamps.length, { material: new THREE.MeshBasicMaterial({ color: 0xffffff }), cast: false, receive: false });
+  const haloPos = new Float32Array(lamps.length * 3);
+  lamps.forEach((l, i) => haloPos.set([l.x, c.height + 0.02, l.z], i * 3));
+  const hg = new THREE.BufferGeometry(); hg.setAttribute('position', new THREE.BufferAttribute(haloPos, 3));
+  const haloMat = new THREE.PointsMaterial({ color: CONFIG.color.bulbOn, map: GLOW, size: 1.5, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending });
+  const halos = new THREE.Points(hg, haloMat); halos.frustumCulled = false; world.add(halos);
+  const off = col('bulbOff'), on = col('bulbOn');
+  let lastB = -1, lastL = -1;
+  function update(bp, level) {
+    if (bp !== lastB) {
+      lastB = bp;
+      lamps.forEach((l, i) => {
+        const k = elasticOut(seg(bp, l.t0, l.t0 + b.lampDur));
+        if (k <= 0) { hide(pole, i); hide(bulb, i); return; }
+        put(pole, i, l.x, 0, l.z, 0, 1, c.height * k, 1);
+        put(bulb, i, l.x, c.height * k + 0.02, l.z, 0, k);
+      });
+      pole.instanceMatrix.needsUpdate = bulb.instanceMatrix.needsUpdate = true;
+    }
+    if (level !== lastL) {
+      lastL = level;
+      let lit = 0;
+      lamps.forEach((l, i) => { const onNow = level > l.thr * 0.9; lit += onNow; bulb.setColorAt(i, onNow ? on : off); });
+      bulb.instanceColor.needsUpdate = true;
+      haloMat.opacity = bp >= 1 ? 0.9 * (lit / lamps.length) : 0;
+    }
+  }
+  return { update };
+}
+
+/* ───────── windmill ───────── */
+function buildWindmill() {
+  const c = CONFIG.windmill, a = c.angle * DEG, g = new THREE.Group();
+  g.position.set(Math.cos(a) * c.r, 0, Math.sin(a) * c.r);
+  g.rotation.y = yawFromTangent(Math.cos(a), Math.sin(a)) - Math.PI / 2;
+  world.add(g);
+  mesh(new THREE.CylinderGeometry(0.34, 0.55, 2.2, 20).translate(0, 1.1, 0), 'white', g);
+  mesh(new THREE.ConeGeometry(0.5, 0.7, 20).translate(0, 2.55, 0), 'tomato', g);
+  const hub = new THREE.Group(); hub.position.set(0, 2.05, 0.5); g.add(hub);
+  mesh(new THREE.SphereGeometry(0.12, 14, 10), 'navy', hub);
+  const blade = new THREE.BoxGeometry(0.2, 1.35, 0.04).translate(0, 0.72, 0);
+  for (let k = 0; k < 4; k++) { const m = mesh(blade, k % 2 ? 'sun' : 'pink', hub); m.rotation.z = k * Math.PI / 2; }
+  let spin = 0;
+  function update(bp, dt, vel) {
+    const k = elasticOut(segR(bp, CONFIG.build.windmill));
+    g.visible = k > 0;
+    g.scale.set(Math.max(1e-4, k), Math.max(1e-4, k), Math.max(1e-4, k));
+    if (k > 0.9) spin += dt * (c.spin + Math.min(4, Math.abs(vel) * 0.02));
+    hub.rotation.z = spin;
+  }
+  return { update };
+}
+
+/* ───────── railway and train ───────── */
+function buildTrain() {
+  const c = CONFIG.track, b = CONFIG.build;
+  const ringStrip = (r0, r1, name, y) => { const geo = new THREE.RingGeometry(r0, r1, 180, 1).rotateX(-Math.PI / 2); const m = mesh(geo, name, world, { cast: false }); m.position.y = y; return m; };
+  const bed = ringStrip(c.bed[0], c.bed[1], 'bed', 0.012);
+  const rails = c.rails.map(([r0, r1]) => ringStrip(r0, r1, 'navy', 0.05));
+  const drawCount = bed.geometry.index.count;
+  const sleepers = inst(new THREE.BoxGeometry(0.62, 0.035, 0.11), c.sleepers, { material: clay('white'), cast: false });
+  const units = [];
+  const unit = (body, top, engine) => {
+    const g = new THREE.Group(); world.add(g);
+    mesh(new THREE.BoxGeometry(0.9, 0.34, 0.5).translate(0, 0.27, 0), body, g);
+    if (engine) {
+      mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.55, 18).rotateZ(Math.PI / 2).translate(0.12, 0.6, 0), top, g);
+      mesh(new THREE.BoxGeometry(0.34, 0.42, 0.5).translate(-0.25, 0.65, 0), 'sun', g);
+      mesh(new THREE.CylinderGeometry(0.07, 0.09, 0.26, 12).translate(0.3, 0.9, 0), 'navy', g);
+    } else mesh(new THREE.BoxGeometry(0.8, 0.12, 0.44).translate(0, 0.5, 0), top, g);
+    const wheel = new THREE.CylinderGeometry(0.1, 0.1, 0.56, 14).rotateX(Math.PI / 2);
+    [-0.28, 0.28].forEach((x) => { mesh(wheel, 'navy', g).position.set(x, 0.1, 0); });
+    return g;
+  };
+  units.push(unit('cobalt', 'tomato', true), unit('tomato', 'sun', false), unit('sun', 'mint', false), unit('mint', 'pink', false));
+  let theta = 0.8, lastB = -1;
+  function update(bp, dt, vel) {
+    if (bp !== lastB) {
+      lastB = bp;
+      const t = segR(bp, b.track);
+      bed.geometry.setDrawRange(0, Math.floor(drawCount * t / 3) * 3);
+      rails.forEach((r) => r.geometry.setDrawRange(0, Math.floor(r.geometry.index.count * t / 3) * 3));
+      for (let i = 0; i < c.sleepers; i++) {
+        const k = elasticOut(seg(t, i / c.sleepers * 0.85, i / c.sleepers * 0.85 + 0.15));
+        const a = (i / c.sleepers) * TAU;
+        if (k <= 0) { hide(sleepers, i); continue; }
+        put(sleepers, i, Math.cos(a) * c.r, 0.03, Math.sin(a) * c.r, -a, k);
+      }
+      sleepers.instanceMatrix.needsUpdate = true;
+    }
+    const on = segR(bp, b.train);
+    if (on >= 1) theta += dt * (c.speed + Math.min(0.5, Math.abs(vel) * 0.002));
+    units.forEach((g, i) => {
+      const k = elasticOut(seg(on, i * 0.18, i * 0.18 + 0.4));
+      g.visible = k > 0;
+      const a = theta - i * (c.gap / c.r);
+      g.position.set(Math.cos(a) * c.r, 0.04, Math.sin(a) * c.r);
+      g.rotation.y = yawFromTangent(-Math.sin(a), Math.cos(a));
+      g.scale.setScalar(Math.max(1e-4, k));
+    });
+  }
+  return { update };
+}
+
+/* ───────── cars (ring traffic + the hero car) ───────── */
+function buildCars() {
+  const c = CONFIG.cars, n = c.phases.length + 1, heroI = n - 1;
+  const body = inst(new THREE.BoxGeometry(1, 1, 1), n), cabin = inst(new THREE.BoxGeometry(1, 1, 1), n);
+  const wheel = inst(new THREE.CylinderGeometry(0.1, 0.1, 0.08, 14).rotateX(Math.PI / 2), n * 4, { material: clay('navy') });
+  const lamp = inst(new THREE.BoxGeometry(0.04, 0.07, 0.1), n * 2, { material: new THREE.MeshBasicMaterial({ color: 0xffffff }), cast: false, receive: false });
+  c.colors.forEach((name, i) => { body.setColorAt(i, col(name)); cabin.setColorAt(i, col(name === 'white' ? 'sun' : 'white')); });
+  body.setColorAt(heroI, col(c.hero[0])); cabin.setColorAt(heroI, col(c.hero[1]));
+  let clock = 0, lastLamp = -1;
+  const place = (i, x, z, yaw, k) => {
+    if (k <= 0) { hide(body, i); hide(cabin, i); for (let w = 0; w < 4; w++) hide(wheel, i * 4 + w); hide(lamp, i * 2); hide(lamp, i * 2 + 1); return; }
+    const cs = Math.cos(yaw), sn = Math.sin(yaw), at = (lx, lz) => [x + lx * cs + lz * sn, z - lx * sn + lz * cs];
+    put(body, i, x, 0.26 * k, z, yaw, 0.8 * k, 0.26 * k, 0.46 * k);
+    const [cx, cz] = at(-0.06 * k, 0); put(cabin, i, cx, 0.49 * k, cz, yaw, 0.44 * k, 0.22 * k, 0.4 * k);
+    [[0.25, 0.22], [0.25, -0.22], [-0.25, 0.22], [-0.25, -0.22]].forEach(([wx, wz], w) => { const [px, pz] = at(wx * k, wz * k); put(wheel, i * 4 + w, px, 0.1 * k, pz, yaw, k); });
+    [0.14, -0.14].forEach((lz, l) => { const [px, pz] = at(0.405 * k, lz * k); put(lamp, i * 2 + l, px, 0.3 * k, pz, yaw, k); });
+  };
+  function update(bp, dt, rideU, vel, level) {
+    const on = segR(bp, CONFIG.build.cars);
+    if (on >= 1) clock += dt * (1 + Math.min(2, Math.abs(vel) * 0.01));
+    c.phases.forEach((ph, i) => {
+      const k = elasticOut(seg(on, i * 0.1, i * 0.1 + 0.4));
+      const a = ph - clock * c.speed;
+      place(i, Math.cos(a) * c.lane, Math.sin(a) * c.lane, yawFromTangent(Math.sin(a), -Math.cos(a)), k);
+    });
+    const r = CONFIG.ride, a = r.theta0 + rideU * r.turns * TAU;
+    place(heroI, Math.cos(a) * r.lane, Math.sin(a) * r.lane, yawFromTangent(-Math.sin(a), Math.cos(a)), elasticOut(seg(on, 0.6, 1)));
+    body.instanceMatrix.needsUpdate = cabin.instanceMatrix.needsUpdate = wheel.instanceMatrix.needsUpdate = lamp.instanceMatrix.needsUpdate = true;
+    const lk = Math.round(level * 20);
+    if (lk !== lastLamp) {
+      lastLamp = lk;
+      _c.set(CONFIG.color.lightDay).lerp(col('lightNight'), level);
+      for (let i = 0; i < n * 2; i++) lamp.setColorAt(i, _c);
+      lamp.instanceColor.needsUpdate = true;
+    }
+  }
+  return { update };
+}
+
+/* ───────── boats, clouds, people, balloons ───────── */
+function buildBoats() {
+  const list = CONFIG.boats.map((d) => {
+    const g = new THREE.Group(); world.add(g);
+    const hull = mesh(new THREE.CapsuleGeometry(0.22, 0.75, 6, 14).rotateZ(Math.PI / 2), d.hull, g); hull.scale.set(1, 0.7, 1.05);
+    mesh(new THREE.CylinderGeometry(0.025, 0.025, 1, 8).translate(0, 0.55, 0), 'navy', g);
+    const sail = new THREE.Shape(); sail.moveTo(0, 0); sail.lineTo(0.55, 0); sail.lineTo(0, 0.8); sail.closePath();
+    const s = mesh(new THREE.ShapeGeometry(sail), new THREE.MeshStandardMaterial({ color: col(d.sail), side: THREE.DoubleSide, ...CONFIG.material }), g);
+    s.position.set(0.04, 0.22, 0);
+    return { g, d };
+  });
+  let clock = 0;
+  function update(bp, dt) {
+    clock += dt;
+    const k = smooth(segR(bp, CONFIG.build.boats));
+    list.forEach(({ g, d }, i) => {
+      const a = d.phase + clock * d.speed, dir = Math.sign(d.speed);
+      g.visible = k > 0;
+      g.position.set(Math.cos(a) * d.r, CONFIG.island.seaTop - 0.02 + (k - 1) * 0.9 + Math.sin(clock * 1.6 + i) * 0.04, Math.sin(a) * d.r);
+      g.rotation.set(Math.sin(clock * 1.3 + i) * 0.06, yawFromTangent(-Math.sin(a) * dir, Math.cos(a) * dir), 0);
+    });
+  }
+  return { update };
+}
+function buildClouds() {
+  const c = CONFIG.clouds, total = c.count * c.puffs;
+  const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, metalness: 0, emissive: 0xffffff, emissiveIntensity: 0.18 });
+  const m = inst(new THREE.SphereGeometry(1, 18, 14), total, { material: mat, cast: false, receive: false });
+  const clouds = Array.from({ length: c.count }, (_, i) => ({ a: (i / c.count) * TAU + rr(-0.3, 0.3), r: rr(...c.r), y: rr(...c.y), dir: rnd() < 0.5 ? -1 : 1,
+    puffs: Array.from({ length: c.puffs }, () => { const dx = rr(-1.1, 1.1); return { dx, dy: rr(0, 0.45) * (1 - Math.abs(dx) / 1.4), dz: rr(-0.55, 0.55), s: rr(0.6, 0.95) * (1 - Math.abs(dx) * 0.28) }; }) }));
+  let clock = 0;
+  function update(dt) {
+    clock += dt;
+    let n = 0;
+    clouds.forEach((cl) => {
+      const a = cl.a + clock * c.drift * cl.dir, cx = Math.cos(a) * cl.r, cz = Math.sin(a) * cl.r, yaw = -a;
+      const cs = Math.cos(yaw), sn = Math.sin(yaw);
+      cl.puffs.forEach((p) => { put(m, n++, cx + p.dx * cs + p.dz * sn, cl.y + p.dy, cz - p.dx * sn + p.dz * cs, 0, p.s, p.s * 0.8, p.s); });
+    });
+    m.instanceMatrix.needsUpdate = true;
+  }
+  return { update };
+}
+/** Cloud curtain: big puffs held in front of the camera that part to reveal the island in the hero. */
+function buildCurtain() {
+  const anchors = [[-1.02, -0.78], [1.04, -0.72], [-1.12, 0.05], [1.12, 0.15], [-0.62, -1.02], [0.66, -1.04]];
+  const puffs = anchors.flatMap(([ax, ay]) => Array.from({ length: 7 }, () => { const dx = rr(-0.26, 0.26); return { ax, ay, dx, dy: rr(-0.06, 0.12) * (1 - Math.abs(dx) / 0.3), s: rr(0.15, 0.25) * (1 - Math.abs(dx) * 1.2) }; }));
+  const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, metalness: 0, emissive: 0xffffff, emissiveIntensity: 0.3 });
+  const m = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 18, 14), mat, puffs.length);
+  m.frustumCulled = false; m.instanceMatrix.setUsage(THREE.DynamicDrawUsage); scene.add(m);
+  function update(k, depth) {
+    m.visible = k < 1;
+    if (!m.visible) return;
+    const tv = Math.tan((camera.fov / 2) * DEG), th = tv * camera.aspect;
+    puffs.forEach((p, i) => {
+      const len = Math.hypot(p.ax, p.ay), push = 1 + k * 1.3;
+      const nx = (p.ax / len) * len * push + p.dx, ny = (p.ay / len) * len * push + p.dy;
+      _p.set(nx * th * depth, ny * tv * depth, -depth).applyMatrix4(camera.matrixWorld);
+      const s = p.s * tv * depth * Math.min(1, camera.aspect);
+      m.setMatrixAt(i, _m.compose(_p, camera.quaternion, _s.set(s, s * 0.85, s)));
+    });
+    m.instanceMatrix.needsUpdate = true;
+  }
+  return { update };
+}
+function buildPeople() {
+  const c = CONFIG.people, b = CONFIG.build;
+  const people = Array.from({ length: c.count }, (_, i) => ({ r: rr(...c.r), a: rr(0, TAU), w: rr(...c.speed) * (rnd() < 0.5 ? -1 : 1), ph: rr(0, TAU), colour: col(CONFIG.candy[i % CONFIG.candy.length]), t0: lerp(b.people[0], b.people[1] - 0.03, i / (c.count - 1)) }));
+  const bodyM = inst(new THREE.CapsuleGeometry(0.07, 0.12, 4, 10).translate(0, 0.13, 0), people.length);
+  const headM = inst(new THREE.SphereGeometry(0.065, 12, 10), people.length, { material: clay('skin') });
+  people.forEach((p, i) => bodyM.setColorAt(i, p.colour));
+  let clock = 0;
+  function update(bp, dt) {
+    clock += dt;
+    people.forEach((p, i) => {
+      const k = elasticOut(seg(bp, p.t0, p.t0 + 0.03));
+      if (k <= 0) { hide(bodyM, i); hide(headM, i); return; }
+      const a = p.a + clock * p.w / p.r, x = Math.cos(a) * p.r, z = Math.sin(a) * p.r, hop = Math.abs(Math.sin(clock * 8 + p.ph)) * 0.035;
+      put(bodyM, i, x, 0.06 + hop, z, 0, k);
+      put(headM, i, x, 0.06 + hop + 0.34 * k, z, 0, k);
+    });
+    bodyM.instanceMatrix.needsUpdate = headM.instanceMatrix.needsUpdate = true;
+  }
+  return { update };
+}
+function buildBalloons() {
+  const c = CONFIG.balloons, e = CONFIG.end;
+  const list = Array.from({ length: c.count }, (_, i) => ({ a: rr(0, TAU), r: rr(0.4, 2.2), out: rr(1, 5), t0: lerp(e.balloons[0], e.balloons[1], i / (c.count - 1)), ph: rr(0, TAU), colour: col(CONFIG.candy[i % CONFIG.candy.length]) }));
+  const m = inst(new THREE.SphereGeometry(0.24, 16, 12), list.length);
+  list.forEach((b, i) => m.setColorAt(i, b.colour));
+  let clock = 0;
+  function update(pe, dt) {
+    clock += dt;
+    list.forEach((b, i) => {
+      const t = seg(pe, b.t0, b.t0 + 0.4);
+      if (t <= 0 || t >= 1) { hide(m, i); return; }
+      const r = b.r + b.out * t, y = 0.6 + t * t * 18 + Math.sin(clock * 2 + b.ph) * 0.1, k = elasticOut(seg(t, 0, 0.15));
+      put(m, i, Math.cos(b.a + t * 0.8) * r, y, Math.sin(b.a + t * 0.8) * r, 0, k, k * 1.18, k);
+    });
+    m.instanceMatrix.needsUpdate = true;
+  }
+  return { update };
+}
+
+/* ───────── build the world ───────── */
+buildIsland();
+const roads = buildRoads();
+const town = buildHouses();
+const trees = buildTrees(town.treeSlots);
+const lamps = buildLamps();
+const windmill = buildWindmill();
+const train = buildTrain();
+const cars = buildCars();
+const boats = buildBoats();
+const clouds = buildClouds();
+const curtain = buildCurtain();
+const people = buildPeople();
+const balloons = buildBalloons();
+
+function updateRoads(bp) {
+  const c = CONFIG.roads, b = CONFIG.build;
+  const t = smooth(segR(bp, b.ring));
+  roads.ring.geometry.setDrawRange(0, Math.floor(roads.ringCount * t / 6) * 6);
+  roads.ring.visible = t > 0;
+  roads.arms.forEach((m, i) => { const k = smooth(seg(segR(bp, b.arms), i * 0.15, i * 0.15 + 0.55)); m.visible = k > 0; m.scale.x = Math.max(1e-4, k); });
+  for (let i = 0; i < c.dashes; i++) {
+    const a = (i / c.dashes) * TAU, k = seg(t, i / c.dashes, i / c.dashes + 0.05);
+    if (k <= 0) { hide(roads.dashes, i); continue; }
+    put(roads.dashes, i, Math.cos(a) * c.lane, c.y + 0.01, Math.sin(a) * c.lane, yawFromTangent(-Math.sin(a), Math.cos(a)), k, 1, 1);
+  }
+  roads.dashes.instanceMatrix.needsUpdate = true;
+  const pk = elasticOut(segR(bp, b.plaza));
+  roads.plaza.visible = pk > 0;
+  roads.plaza.scale.setScalar(Math.max(1e-4, pk));
+}
+
+/* ───────── camera poses ───────── */
+// A pose is local to the rotating world group: target, azimuth, elevation, distance, fov.
+const pose = (tx, ty, tz, az, el, dist, fov) => ({ tx, ty, tz, az, el, dist, fov });
+function fitDistance(fit, el, fov) {
+  // portrait screens may crop the plate rim a little so the town itself is not tiny
+  const tv = Math.tan((fov / 2) * DEG), aspect = camera.aspect, R = CONFIG.cam.fitR * fit * (aspect < 1 ? CONFIG.cam.portraitFit : 1);
+  const vert = R * Math.sin(el) + 4.5 * Math.cos(el) + 2;
+  return Math.max(vert / tv, (R * 1.04) / (tv * aspect));
+}
+const isoPose = (az, el, fit, ty) => pose(0, ty, 0, az, el, fitDistance(fit, el, 18), 18);
+function fromPoints(px, py, pz, tx, ty, tz, fov) {
+  const dx = px - tx, dy = py - ty, dz = pz - tz, d = Math.hypot(dx, dy, dz);
+  return pose(tx, ty, tz, Math.atan2(dx, dz), Math.asin(dy / d), d, fov);
+}
+function lerpPose(a, b, t) {
+  let dAz = (b.az - a.az) % TAU; if (dAz > Math.PI) dAz -= TAU; if (dAz < -Math.PI) dAz += TAU;
+  return pose(lerp(a.tx, b.tx, t), lerp(a.ty, b.ty, t), lerp(a.tz, b.tz, t), a.az + dAz * t, lerp(a.el, b.el, t), Math.exp(lerp(Math.log(a.dist), Math.log(b.dist), t)), lerp(a.fov, b.fov, t));
+}
+const rangePose = (cfg, p) => isoPose(lerpR(cfg.az, p), lerpR(cfg.el, p), lerpR(cfg.fit, p), lerpR(cfg.ty, p));
+function chasePose(u) {
+  const r = CONFIG.ride, th = r.theta0 + u * r.turns * TAU, back = th - r.behind / r.camR, ahead = th + r.ahead / r.lane;
+  const h = lerpR(r.height, 0.5 - 0.5 * Math.cos(u * TAU * r.waves));
+  return fromPoints(Math.cos(back) * r.camR, h, Math.sin(back) * r.camR, Math.cos(ahead) * r.lane, r.lookY, Math.sin(ahead) * r.lane, r.fov);
+}
+function squarePose(p) {
+  const c = CONFIG.tiny, k = Math.min(1, camera.aspect * c.portrait);
+  return pose(0, c.target, 0, lerpR(c.az, p), lerpR(c.el, p), lerpR(c.dist, p) / k, c.fov);
+}
+function endPose(p, P) {
+  const e = CONFIG.end, lastAz = CONFIG.tiny.az[1];
+  const far = isoPose(lastAz + e.az, e.el, e.fit, e.ty);
+  return lerpPose(squarePose(1), far, smooth(segR(p, e.pull)));
+}
+function cameraPose(P) {
+  if (reduce) return isoPose(CONFIG.tiny.az[1] + CONFIG.end.az, CONFIG.end.el, CONFIG.end.fit, CONFIG.end.ty);
+  const r = CONFIG.ride;
+  if (P.end > 0) return endPose(P.end, P);
+  if (P.tiny > 0) return squarePose(P.tiny);
+  if (P.ride > 0) {
+    const u = segR(P.ride, r.drive);
+    let q = lerpPose(rangePose(CONFIG.nightCam, 1), chasePose(u), smooth(segR(P.ride, r.blendIn)));
+    return lerpPose(q, squarePose(0), smooth(segR(P.ride, r.blendOut)));
+  }
+  if (P.night > 0) return rangePose(CONFIG.nightCam, P.night);
+  if (P.build > 0) return rangePose(CONFIG.buildCam, P.build);
+  return rangePose(CONFIG.hero, P.hero);
+}
+function applyPose(q, rot) {
+  const cs = Math.cos(rot), sn = Math.sin(rot);
+  const tx = q.tx * cs + q.tz * sn, tz = -q.tx * sn + q.tz * cs, az = q.az + rot;
+  camera.fov = q.fov; camera.updateProjectionMatrix();
+  camera.position.set(tx + Math.cos(q.el) * Math.sin(az) * q.dist, q.ty + Math.sin(q.el) * q.dist, tz + Math.cos(q.el) * Math.cos(az) * q.dist);
+  camera.lookAt(tx, q.ty, tz);
+  camera.updateMatrixWorld();
+  return q.dist;
+}
+
+/** Place a camera-facing disc at screen coordinates (-1..1) and a depth in front of the camera. */
+function onScreen(obj, nx, ny, depth, size) {
+  const tv = Math.tan((camera.fov / 2) * DEG), th = tv * camera.aspect;
+  obj.position.set(nx * th * depth, ny * tv * depth, -depth).applyMatrix4(camera.matrixWorld);
+  obj.quaternion.copy(camera.quaternion);
+  obj.scale.setScalar(Math.max(1e-4, size * tv * depth));
+}
+
+/* ───────── day and night ───────── */
+const tmpA = new THREE.Color(), tmpB = new THREE.Color();
+function sky3(which, i) { return tmpA.set(CONFIG.sky.day[i]).lerp(tmpB.set(CONFIG.sky.night[i]), which.tod).lerp(tmpB.set(CONFIG.sky.sunset[i]), which.glow); }
+function lighting(P, dist) {
+  const n = CONFIG.night, r = CONFIG.ride, L = CONFIG.light;
+  const tod = reduce ? 0 : smooth(segR(P.night, n.sky)) * (1 - smooth(segR(P.ride, r.dawn)));
+  const glow = reduce ? 0 : Math.max(bump(seg(P.night, 0.15, 0.65)), bump(segR(P.ride, r.dawn)) * 0.8) * (P.tiny > 0 ? 0 : 1);
+  const lightsOn = reduce ? 0 : segR(P.night, n.windows) * (1 - seg(P.ride, 0.55, 0.85));
+  const lampsOn = reduce ? 0 : segR(P.night, n.lamps) * (1 - seg(P.ride, 0.6, 0.8));
+  skyU.uTop.value.copy(sky3({ tod, glow }, 0)); skyU.uBot.value.copy(sky3({ tod, glow }, 1));
+  const set = reduce ? 0 : segR(P.night, n.sunset) * (P.ride > 0 ? 0 : 1);
+  // light direction: day, sweeping low for sunset, then moonlight
+  const day = new THREE.Vector3(...L.day.pos), low = new THREE.Vector3(...L.sunset.pos), moon = new THREE.Vector3(...L.night.pos);
+  const dir = day.clone().lerp(low, bump(set) * (1 - tod)).lerp(moon, tod);
+  sunLight.position.copy(dir.normalize().multiplyScalar(40));
+  sunLight.color.set(L.day.color).lerp(tmpA.set(L.sunset.color), glow).lerp(tmpB.set(L.night.color), tod);
+  sunLight.intensity = lerp(lerp(L.day.i, L.sunset.i, glow), L.night.i, tod);
+  hemi.color.set(L.day.hemi[0]).lerp(tmpA.set(L.night.hemi[0]), tod);
+  hemi.groundColor.set(L.day.hemi[1]).lerp(tmpA.set(L.night.hemi[1]), tod);
+  hemi.intensity = lerp(L.day.hemi[2], L.night.hemi[2], tod);
+  stars.material.opacity = reduce ? 0 : smooth(segR(P.night, n.stars)) * (1 - smooth(segR(P.ride, r.dawn)));
+  stars.position.copy(camera.position); sky.position.copy(camera.position);
+  // sun and moon discs ride in the sky behind the island, only in the wide views
+  const iso = reduce ? 1 : (1 - smooth(segR(P.ride, r.blendIn))) * (P.tiny > 0 && P.end <= 0 ? 0 : 1) * (P.end > 0 ? smooth(segR(P.end, CONFIG.end.sun)) : 1) * (reduce ? 1 : smooth(seg(P.build, 0, 0.06)));
+  const s = CONFIG.sunArc, a = P.end > 0 || reduce ? s.rest : lerp(s.rest, 1, set);
+  const sy = a < 0.8 ? s.yBase + s.yArc * Math.sin(a * Math.PI) : lerp(s.yBase + s.yArc * Math.sin(0.8 * Math.PI), s.ySet, (a - 0.8) / 0.2);
+  sunDisc.visible = iso > 0.01 && a < 1;
+  onScreen(sunDisc, lerpR(s.x, a), sy, dist * s.depth, s.size * iso);
+  const m = CONFIG.moonArc, mk = reduce ? 0 : segR(P.night, n.moon);
+  moonDisc.visible = iso > 0.01 && mk > 0 && P.ride < CONFIG.ride.blendIn[1];
+  onScreen(moonDisc, lerpR(m.x, mk), lerpR(m.y, smooth(mk)), dist * s.depth, m.size * iso * smooth(seg(mk, 0, 0.2)));
+  return { tod, lightsOn, lampsOn };
+}
+
+/* ───────── tilt-shift postprocessing ───────── */
+const TILT = {
+  uniforms: { tDiffuse: { value: null }, uRes: { value: new THREE.Vector2(1, 1) }, uFocus: { value: 0.5 }, uBand: { value: 0.08 }, uSoft: { value: 0.22 }, uAmount: { value: 0 }, uMaxPx: { value: 12 }, uSat: { value: 1.2 } },
+  vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.); }`,
+  fragmentShader: `uniform sampler2D tDiffuse; uniform vec2 uRes; uniform float uFocus, uBand, uSoft, uAmount, uMaxPx, uSat; varying vec2 vUv;
+    void main(){
+      float k = smoothstep(uBand, uBand + uSoft, abs(vUv.y - uFocus)) * uAmount;
+      vec2 px = uMaxPx * k / uRes;
+      vec3 acc = texture2D(tDiffuse, vUv).rgb;
+      for (int i = 0; i < 24; i++) { float f = float(i); float r = sqrt((f + .5) / 24.); float a = f * 2.39996; acc += texture2D(tDiffuse, vUv + vec2(cos(a), sin(a)) * r * px).rgb; }
+      vec3 c = acc / 25.;
+      float l = dot(c, vec3(.2126, .7152, .0722));
+      gl_FragColor = vec4(mix(vec3(l), c, mix(1., uSat, uAmount)), 1.);
+    }`,
+};
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+const tilt = new ShaderPass(TILT); composer.addPass(tilt);
+composer.addPass(new OutputPass());
+const pointer = { y: 0.5, moved: -1e9 };
+addEventListener('pointermove', (e) => { pointer.y = e.clientY / innerHeight; pointer.moved = performance.now(); });
+let focus = 0.5;
+
+/* ───────── resize ───────── */
+function fit() {
+  const W = innerWidth, H = innerHeight, dpr = dprNow();
+  renderer.setPixelRatio(dpr); renderer.setSize(W, H, false);
+  composer.setPixelRatio(dpr); composer.setSize(W, H);
+  camera.aspect = W / H; camera.updateProjectionMatrix();
+  skyU.uH.value = H * dpr;
+  tilt.uniforms.uRes.value.set(W * dpr, H * dpr);
+  tilt.uniforms.uMaxPx.value = CONFIG.tiny.maxPx * dpr;
+  stars.material.size = 2.4 * dpr;
+}
+fit();
+addEventListener('resize', () => { fit(); if (reduce) frame(0); });
+
+/* ───────── frame ───────── */
+let worldRot = reduce ? 0.35 : 0, clock = 0;
+function frame(dtIn) {
+  const dt = reduce ? 0 : dtIn;
+  clock += dt;
+  const P = progressOf(worldST), Q = progressOf(textST), vel = velocity();
+  // the island spins on its own in the hero and in the finale; the accumulated angle carries into every later view
+  if (!reduce) worldRot += dt * (CONFIG.hero.spin * (P.build > 0 ? 0 : 1) + CONFIG.end.spin * smooth(seg(P.end, 0.4, 0.6)));
+  world.rotation.y = worldRot;
+  const bp = reduce ? 1 : P.build;
+  const q = cameraPose(P), dist = applyPose(q, worldRot);
+  const env = lighting(P, dist);
+  updateRoads(bp);
+  town.update(bp); town.light(env.lightsOn, 1 - env.tod);
+  trees.update(bp);
+  lamps.update(bp, Math.round(env.lampsOn * 40) / 40);
+  windmill.update(bp, dt, vel);
+  train.update(bp, dt, vel);
+  cars.update(bp, dt, reduce ? 0 : (P.tiny > 0 ? 1 : segR(P.ride, CONFIG.ride.drive)), vel, env.tod);
+  boats.update(bp, dt);
+  clouds.update(dt);
+  people.update(bp, dt);
+  balloons.update(reduce ? 0 : P.end, dt);
+  roads.spout.position.y = 0.95 + Math.sin(clock * 3) * 0.05;
+  curtain.update(reduce ? 1 : smooth(segR(Q.hero, CONFIG.hero.curtain)) + (P.build > 0 ? 1 : 0), dist * 0.45);
+  // tilt-shift: fades in on arrival over the square, follows the pointer, fades out as the camera pulls away
+  const tc = CONFIG.tiny, amount = reduce ? 0 : smooth(seg(P.ride, 0.9, 1)) * (1 - smooth(segR(P.end, CONFIG.end.tiltOff)));
+  const idle = performance.now() - pointer.moved > 2500;
+  const want = idle ? 0.45 + Math.sin(clock * 0.4) * 0.12 : 1 - pointer.y;
+  focus += (want - focus) * 0.08;
+  if (amount > 0.001) {
+    tilt.uniforms.uFocus.value = focus;
+    tilt.uniforms.uAmount.value = amount; tilt.uniforms.uBand.value = tc.band; tilt.uniforms.uSoft.value = tc.soft; tilt.uniforms.uSat.value = tc.sat;
+    composer.render(dt);
+  } else renderer.render(scene, camera);
+  if (!reduce) texts(Q);
+}
+
+function texts(Q) {
+  const W = CONFIG.words;
+  heroTitle(letters.title, Q.hero);
+  ['w-build', 'w-night', 'w-ride', 'w-tiny', 'fin-title'].forEach((id) => {
+    const key = { 'w-build': 'build', 'w-night': 'night', 'w-ride': 'ride', 'w-tiny': 'tiny', 'fin-title': 'end' }[id];
+    popWord(letters[id], Q[key], W[id]);
+  });
+  const c = segR(Q.end, W.finCopy), copy = $('#fin-copy');
+  copy.style.opacity = c; copy.style.transform = `translateY(${(1 - backOut(c)) * 40}px)`;
+  copy.style.pointerEvents = c > 0.5 ? 'auto' : 'none';
+}
+
+/* ───────── intro, magnet, loop ───────── */
+if (!reduce) {
+  gsap.from($$('#title .ci'), { scale: 0, yPercent: 60, rotate: (i) => (i % 2 ? 18 : -18), duration: 1.4, ease: 'elastic.out(1, 0.45)', stagger: 0.08, delay: 0.25 });
+  const magnet = $('#magnet'), label = magnet.querySelector('span');
+  magnet.addEventListener('pointermove', (e) => {
+    const r = magnet.getBoundingClientRect(), dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2);
+    gsap.to(magnet, { x: dx * 0.45, y: dy * 0.45, duration: 0.4, ease: 'power3.out' });
+    gsap.to(label, { x: dx * 0.2, y: dy * 0.2, duration: 0.4, ease: 'power3.out' });
+  });
+  magnet.addEventListener('pointerleave', () => gsap.to([magnet, label], { x: 0, y: 0, duration: 0.9, ease: 'elastic.out(1, 0.35)' }));
+  gsap.ticker.add((t, deltaMs) => { if (!document.hidden) frame(Math.min(deltaMs / 1000, 0.05)); });
+} else {
+  frame(0);
+  document.fonts.ready.then(() => frame(0));
+}
+document.fonts.ready.then(() => ScrollTrigger.refresh());
+// verification hook for Playwright: draw calls per frame
+if (new URLSearchParams(location.search).has('debug')) window.__toytown = { info: () => ({ ...renderer.info.render }) };
+</script>
+</body>
+</html>
