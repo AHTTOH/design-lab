@@ -74,9 +74,6 @@
 
   /* 04 displace gallery */
   .gal-cap { position: absolute; left: var(--gutter); bottom: 12vh; pointer-events: none; text-shadow: 0 4px 30px rgba(0,0,0,.8); }
-  .gal-count { display: flex; align-items: baseline; gap: 10px; font-weight: 900; letter-spacing: -.05em; font-variant-numeric: tabular-nums; }
-  .gal-count b { font-size: clamp(3rem, 1rem + 5vw, 7rem); line-height: .85; }
-  .gal-count span { font-size: 13px; font-weight: 600; letter-spacing: .3em; color: var(--soft); }
   .gal-name { margin: 14px 0 0; font-size: clamp(1.2rem, .8rem + 1.2vw, 2rem); font-weight: 800; letter-spacing: -.02em; will-change: opacity, transform; }
 
   /* 05 CSS 3D flight */
@@ -174,7 +171,6 @@
     <div class="pin" id="gallery-pin">
       <h2 class="scene-title" id="gal-title">DISPLACE</h2>
       <div class="gal-cap" aria-live="polite">
-        <div class="gal-count" aria-hidden="true"><b id="gal-idx">01</b><span id="gal-tot">/ 05</span></div>
         <p class="gal-name" id="gal-name"></p>
       </div>
     </div>
@@ -755,9 +751,8 @@ void main() {
 }`;
 
 function initGallery(stage) {
-  const cfg = CONFIG.gallery, pin = $('#gallery-pin'), idxEl = $('#gal-idx'), nameEl = $('#gal-name'), title = $('#gal-title');
+  const cfg = CONFIG.gallery, pin = $('#gallery-pin'), nameEl = $('#gal-name'), title = $('#gal-title');
   const n = cfg.images.length;
-  $('#gal-tot').textContent = `/ ${String(n).padStart(2, '0')}`;
   const loader = new THREE.TextureLoader();
   const textures = cfg.images.map((img, i) => loader.load(img.src, () => stage.markDirty(), undefined, (e) => console.error(`gallery still ${i + 1} (${img.cap}) failed to load`, e)));
   textures.forEach((t) => { t.minFilter = THREE.LinearFilter; t.generateMipmaps = false; });
@@ -788,7 +783,7 @@ function initGallery(stage) {
   const mode = stage.add({ pin, draw, resize: (w, h) => { W = w; H = h; } });
   const caption = (i) => {
     if (i === shown) return;
-    shown = i; idxEl.textContent = String(i + 1).padStart(2, '0'); nameEl.textContent = cfg.images[i].cap;
+    shown = i; nameEl.textContent = cfg.images[i].cap;
     if (!reduce) gsap.fromTo(nameEl, { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: .6, ease: 'expo.out' });
   };
   track('#s-gallery', (p) => {

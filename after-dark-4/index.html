@@ -71,8 +71,6 @@
   .seq-canvas { transform-origin: 50% 50%; will-change: transform; }
   .vignette { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse at 50% 50%, transparent 45%, rgba(0,0,0,.72) 100%); }
   .seq-title { position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-50%); margin: 0; text-align: center; font-size: var(--display); font-weight: 900; letter-spacing: -.065em; line-height: .85; color: transparent; -webkit-text-stroke: 2px var(--ink); pointer-events: none; will-change: opacity, transform; }
-  .counter { position: absolute; right: var(--gutter); top: 9vh; text-align: right; font-weight: 900; letter-spacing: -.05em; line-height: .85; font-size: clamp(2.4rem, 1rem + 4vw, 6rem); font-variant-numeric: tabular-nums; pointer-events: none; text-shadow: 0 4px 30px rgba(0,0,0,.8); }
-  .counter small { display: block; font-size: 12px; font-weight: 600; letter-spacing: .3em; color: var(--soft); margin-top: 10px; }
   .lines { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
   .lines path { fill: none; stroke-width: 1.2; stroke-dasharray: 1; stroke-dashoffset: 1; }
   .lines circle { stroke: none; }
@@ -97,8 +95,7 @@
     .tag { left: var(--mx); top: var(--my); }
   }
   @media (max-width: 760px) {
-    .counter { top: 7vh; }
-    .re-head { top: 12vh; }
+      .re-head { top: 12vh; }
   }
   @media (pointer: coarse) {
     html, body, a, button { cursor: auto; }
@@ -117,7 +114,7 @@
 <div class="cursor" id="cursor" aria-hidden="true"></div>
 <div class="progress" id="progress" aria-hidden="true"></div>
 <div class="hud" aria-hidden="true"><b id="hud-i">01</b><i></i><span id="hud-n">FLUID</span></div>
-<div class="load" id="load" aria-hidden="true"><span id="load-n">000/192</span><i></i></div>
+<div class="load" id="load" aria-hidden="true"><i></i></div>
 
 <main>
   <section class="scene hero" id="s-hero" data-scene="FLUID" style="--len:350vh">
@@ -145,7 +142,6 @@
       <canvas class="fill seq-canvas" id="anatomy-canvas" role="img" aria-label="하이퍼카가 부품 단위로 분해되는 장면"></canvas>
       <div class="vignette"></div>
       <h2 class="seq-title" id="anatomy-title">ANATOMY</h2>
-      <div class="counter" aria-hidden="true"><span id="counter">001</span><small>/ 192</small></div>
       <svg class="lines" id="lines" aria-hidden="true"></svg>
       <p class="tag" data-part="door">도어·바디 패널</p>
       <p class="tag" data-part="seat">시트</p>
@@ -588,9 +584,8 @@ function createSeqPlayer(canvas, store) {
   }
 }
 
-const loadEl = $('#load'), loadN = $('#load-n');
+const loadEl = $('#load');
 const store = createFrameStore(CONFIG.seq, (n, total) => {
-  loadN.textContent = `${String(n).padStart(3, '0')}/${total}`;
   loadEl.style.setProperty('--k', n / total);
   if (n === total) loadEl.classList.add('done');
 });
@@ -598,7 +593,7 @@ const LAST = CONFIG.seq.count - 1;
 
 /* ───────── 03 anatomy ───────── */
 {
-  const cfg = CONFIG.anatomy, pin = $('#anatomy-pin'), canvas = $('#anatomy-canvas'), title = $('#anatomy-title'), counter = $('#counter'), svg = $('#lines');
+  const cfg = CONFIG.anatomy, pin = $('#anatomy-pin'), canvas = $('#anatomy-canvas'), title = $('#anatomy-title'), svg = $('#lines');
   const player = createSeqPlayer(canvas, store);
   const NS = 'http://www.w3.org/2000/svg';
   const tags = $$('#anatomy-pin .tag').map((el) => {
@@ -634,7 +629,6 @@ const LAST = CONFIG.seq.count - 1;
     prog = p;
     const idx = reduce ? LAST : Math.round(segR(p, cfg.frames) * LAST);
     player.set(idx);
-    counter.textContent = String(idx + 1).padStart(3, '0');
     zoom = reduce ? cfg.zoom[1] : lerp(cfg.zoom[0], cfg.zoom[1], smooth(p));
     canvas.style.transform = `scale(${zoom})`;
     canvas.style.opacity = reduce ? 1 : smooth(segR(p, cfg.fadeIn));
