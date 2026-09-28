@@ -11,6 +11,8 @@
 <style>
   @view-transition { navigation: auto; }
   :root {
+    /* Every scene's --len is multiplied by this, so each wheel tick advances the story less. 2026-09-28: 1 felt too fast. */
+    --scroll-stretch: 2.5;
     --bg: #000; --ink: #f3f3ff; --soft: #8a8fa8; --line: #1a1b28;
     --cobalt: #3d4dff; --violet: #8b5cff; --magenta: #ff3fd0; --lime: #c6ff3d;
     --display: clamp(3.4rem, 1rem + 12vw, 15rem);
@@ -38,7 +40,7 @@
   .defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 
   main { position: relative; z-index: 1; }
-  .scene { position: relative; height: var(--len); }
+  .scene { position: relative; height: calc(var(--len) * var(--scroll-stretch)); }
   .pin { position: sticky; top: 0; height: 100vh; overflow: hidden; }
   .ln { display: block; }
   .ch { display: inline-block; will-change: transform; }
