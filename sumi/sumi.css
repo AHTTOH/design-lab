@@ -9,7 +9,7 @@
   --seal: #b2221e;
   --brush: 'Song Myung', 'Nanum Myeongjo', serif;
   --serif: 'Nanum Myeongjo', 'Noto Serif KR', serif;
-  --scroll-stretch: 1.5;
+  --scroll-stretch: 1;
   --gutter: clamp(16px, 6vw, 96px);
   --title: min(34vh, 30vw);
   --line: clamp(15px, 0.55vw + 11px, 21px);

@@ -38,6 +38,21 @@
   .work a:hover .shot video, .work a:focus-visible .shot video { opacity: 1; }
   .work a:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
   footer { border-top: 1px solid var(--line); padding: 32px var(--gutter) 48px; color: #6b7088; font-size: 0.9rem; }
+  /* Compact index built from the .work rows so every study is one click from the top. */
+  .index { padding: 0 var(--gutter) clamp(40px, 8vh, 96px); }
+  .index ol { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 420px), 1fr)); column-gap: clamp(24px, 4vw, 64px); }
+  .index li { border-top: 1px solid var(--line); }
+  .index a { display: grid; grid-template-columns: 3.2rem minmax(0, 1fr); gap: 0 14px; align-items: baseline; padding: 16px 0; }
+  .index .i-num { grid-row: span 2; font-size: 1.6rem; font-weight: 900; letter-spacing: -0.05em; color: #3a3e56; transition: color .3s var(--ease); }
+  .index .i-title { font-size: 1.15rem; font-weight: 800; letter-spacing: -0.02em; transition: transform .4s var(--ease); }
+  .index .i-meta { color: #6b7088; font-size: 0.82rem; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .index a:hover .i-num, .index a:focus-visible .i-num { color: var(--accent); }
+  .index a:hover .i-title, .index a:focus-visible .i-title { transform: translateX(6px); }
+  .index a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .peek { position: fixed; left: 0; top: 0; width: 320px; aspect-ratio: 16 / 9; border-radius: 6px; overflow: hidden; pointer-events: none; z-index: 10; opacity: 0; transform: translate(-50%, -50%) scale(.9); transition: opacity .25s, transform .35s var(--ease); background: #0a0b12; }
+  .peek.on { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  .peek img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  @media (hover: none) { .peek { display: none; } }
   @media (max-width: 760px) {
     .work a { grid-template-columns: 1fr; }
     .shot { order: -1; }
@@ -53,6 +68,8 @@
 <header>
   <h1>design<span>-</span>lab</h1>
 </header>
+<nav class="index" aria-label="작품 목차"><ol id="index-list"></ol></nav>
+<div class="peek" id="peek" aria-hidden="true"><img alt=""></div>
 <main>
   <ol>
     <li class="work">
@@ -125,16 +142,6 @@
       </a>
     </li>
     <li class="work">
-      <a href="swiss/">
-        <div>
-          <div class="num" aria-hidden="true">S</div>
-          <h2>SWISS</h2>
-          <p class="meta">2026-09-28 · 격자 재배열 타이포 · SVG 포스터 · 가변 폰트 축 애니메이션</p>
-        </div>
-        <div class="shot"><img src="assets/thumb/swiss.webp" alt="SWISS 포스터 첫 화면" loading="lazy" width="960" height="540"></div>
-      </a>
-    </li>
-    <li class="work">
       <a href="chrome/">
         <div>
           <div class="num" aria-hidden="true">C</div>
@@ -171,6 +178,27 @@
 </main>
 <footer>신영환 · 2026</footer>
 <script>
+  // Build the compact index from the showcase rows, so a new study only needs one <li class="work">.
+  const PEEK_OFFSET = { x: 190, y: 0 };
+  const indexList = document.getElementById('index-list');
+  const peek = document.getElementById('peek');
+  const peekImg = peek.querySelector('img');
+  document.querySelectorAll('.work a').forEach((row) => {
+    const li = document.createElement('li');
+    const link = document.createElement('a');
+    link.href = row.getAttribute('href');
+    const num = document.createElement('span'); num.className = 'i-num'; num.textContent = row.querySelector('.num').textContent;
+    const title = document.createElement('span'); title.className = 'i-title'; title.textContent = row.querySelector('h2').textContent;
+    const meta = document.createElement('span'); meta.className = 'i-meta'; meta.textContent = row.querySelector('.meta').textContent.replace(/^\d{4}-\d{2}-\d{2} · /, '');
+    link.append(num, title, meta);
+    const thumb = row.querySelector('.shot img').getAttribute('src');
+    link.addEventListener('pointerenter', () => { peekImg.src = thumb; peek.classList.add('on'); });
+    link.addEventListener('pointerleave', () => peek.classList.remove('on'));
+    li.append(link);
+    indexList.append(li);
+  });
+  addEventListener('pointermove', (e) => { peek.style.left = `${e.clientX + PEEK_OFFSET.x}px`; peek.style.top = `${e.clientY + PEEK_OFFSET.y}px`; });
+
   // Plays the preview clip only while the row is hovered or focused.
   document.querySelectorAll('.work a').forEach((row) => {
     const video = row.querySelector('video');
