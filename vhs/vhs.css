@@ -1,0 +1,121 @@
+/* VHS: 1990s tape and CRT study. 2026-09-28. Tokens first, then layers, then scenes. */
+:root {
+  /* Every scene's --len is multiplied by this. New studies run near 7,000vh at 1 (HANDOFF 5-2). */
+  --scroll-stretch: 1;
+
+  --tube: #000;
+  --bezel: #020308;
+  --phosphor: #8dffc0;
+  --phosphor-dim: #2fbf72;
+  --phosphor-glow: rgba(70, 255, 150, .55);
+  --vcr-blue: #1426c9;
+  --tape-magenta: #ff2fd0;
+  --tape-cyan: #1fe6ff;
+  --tape-yellow: #ffe81a;
+  --title-core: #eef6ff;
+
+  --osd: 'Galmuri11', 'Galmuri9', monospace;
+  --osd-wide: 'Galmuri14', 'Galmuri11', monospace;
+  --display: 'VT323', 'Galmuri14', monospace;
+
+  --inset-x: clamp(26px, 8vw, 140px);
+  --inset-y: clamp(30px, 10vh, 110px);
+  --osd-size: clamp(19px, .8rem + 1.3vw, 36px);
+  --big-osd: clamp(2.6rem, .8rem + 7.4vw, 9rem);
+  --cam-size: clamp(2.2rem, .8rem + 5.2vw, 6.4rem);
+  --title-size: min(46vw, 64vh);
+  --ca: .02em;
+}
+@media (prefers-reduced-motion: reduce) {
+  /* Frames do not animate on their own, so the long runway is shortened. */
+  :root { --scroll-stretch: .4; }
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; overflow-x: clip; }
+body { background: var(--tube); color: var(--phosphor); font-family: var(--osd); }
+::selection { background: var(--tape-magenta); color: #000; }
+
+/* layers: picture (0) < scene type (1) < glass (3) */
+#picture, #crt { position: fixed; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; }
+#picture { z-index: 0; filter: saturate(1.18) contrast(1.06); }
+#crt { z-index: 3; }
+main { position: relative; z-index: 1; }
+.scene { position: relative; height: calc(var(--len) * var(--scroll-stretch)); }
+.pin { position: sticky; top: 0; height: 100vh; overflow: hidden; }
+
+/* on-screen display: the VCR's own lettering, green with a hard black drop */
+.osd {
+  position: absolute; margin: 0; display: flex; align-items: center; gap: .45em;
+  font-family: var(--osd); font-size: var(--osd-size); line-height: 1; letter-spacing: .04em; color: var(--phosphor);
+  text-shadow: .08em .08em 0 #000, 0 0 .3em var(--phosphor-glow), 0 0 .9em rgba(70, 255, 150, .35);
+  pointer-events: none; will-change: opacity;
+}
+.osd-tl { left: var(--inset-x); top: var(--inset-y); }
+.osd-tr { right: var(--inset-x); top: var(--inset-y); }
+.big-osd {
+  position: absolute; margin: 0; display: flex; align-items: center; gap: .3em;
+  font-family: var(--osd-wide); font-size: var(--big-osd); line-height: 1; color: var(--phosphor); white-space: nowrap;
+  text-shadow: .05em .05em 0 #000, 0 0 .25em var(--phosphor-glow);
+  pointer-events: none; will-change: opacity, transform;
+}
+
+/* transport glyphs drawn with CSS shapes (no icon font) */
+.g { display: inline-block; flex: none; width: .78em; height: .78em; background: currentColor; filter: drop-shadow(.09em .09em 0 #000); }
+.g-play { clip-path: polygon(8% 0, 100% 50%, 8% 100%); }
+.g-ff { width: 1.3em; clip-path: polygon(0 0, 50% 50%, 0 100%, 0 0, 50% 0, 100% 50%, 50% 100%, 50% 0); }
+.g-rew { width: 1.3em; clip-path: polygon(100% 0, 50% 50%, 100% 100%, 100% 0, 50% 0, 0 50%, 50% 100%, 50% 0); }
+.g-pause { clip-path: polygon(8% 0, 38% 0, 38% 100%, 8% 100%, 8% 0, 62% 0, 92% 0, 92% 100%, 62% 100%, 62% 0); }
+.g-eject { clip-path: polygon(50% 0, 100% 58%, 0 58%, 50% 0, 0 72%, 100% 72%, 100% 100%, 0 100%, 0 72%); }
+
+/* scene 1: power on */
+.vhs-title {
+  position: absolute; left: 50%; top: 50%; margin: 0; transform: translate(-50%, -54%);
+  font-family: var(--display); font-weight: 400; font-size: var(--title-size); line-height: .8; letter-spacing: .02em; color: var(--title-core);
+  text-shadow: calc(var(--ca) * -1) 0 0 rgba(255, 47, 208, .85), var(--ca) 0 0 rgba(31, 230, 255, .85), 0 0 .09em rgba(150, 190, 255, .7);
+  opacity: 0; pointer-events: none; will-change: transform, opacity;
+}
+
+/* scene 2: camcorder titler lettering, white with a hard black outline */
+.cam-title {
+  position: absolute; left: var(--inset-x); bottom: calc(var(--inset-y) * 1.3); margin: 0;
+  font-family: var(--osd-wide); font-size: var(--cam-size); line-height: 1; color: #fff; white-space: nowrap;
+  text-shadow: 3px 0 0 #000, -3px 0 0 #000, 0 3px 0 #000, 0 -3px 0 #000, 3px 3px 0 #000, -3px -3px 0 #000, 3px -3px 0 #000, -3px 3px 0 #000, .06em .08em 0 var(--tape-magenta);
+  opacity: 0; pointer-events: none; will-change: opacity;
+}
+.cam-title-b { left: auto; right: var(--inset-x); color: var(--tape-yellow); }
+
+/* scene 3: rewind */
+.rew-big { left: var(--inset-x); top: 50%; transform: translateY(-50%); }
+
+/* scene 4: channel surf */
+.surf-osd { flex-direction: column; align-items: flex-end; gap: .35em; }
+.surf-label { font-size: .8em; color: var(--phosphor-dim); }
+.surf-name { font-family: var(--osd-wide); font-size: 2.3em; }
+
+/* scene 5: eject */
+.eject-big { right: var(--inset-x); bottom: calc(var(--inset-y) * 1.2); color: var(--tape-yellow); opacity: 0; }
+
+/* scene 6: power off */
+.vhs-title.ghost { color: var(--phosphor); text-shadow: 0 0 .06em var(--phosphor-glow), 0 0 .3em rgba(70, 255, 150, .25); filter: blur(1.5px); }
+.off-copy { position: absolute; left: 0; right: 0; bottom: 11vh; display: grid; place-items: center; opacity: 0; visibility: hidden; }
+.magnet {
+  position: relative; display: grid; place-items: center; width: 132px; height: 132px; border-radius: 50%;
+  text-decoration: none; color: var(--phosphor); font: 400 18px var(--osd);
+  background: radial-gradient(circle at 36% 30%, #2a3040 0%, #0b0e16 55%, #000 100%);
+  border: 2px solid var(--phosphor-dim);
+  box-shadow: 0 0 0 6px #05070c, 0 0 40px rgba(70, 255, 150, .28), inset 0 -8px 16px rgba(0, 0, 0, .7), inset 0 6px 10px rgba(255, 255, 255, .08);
+  text-shadow: 0 0 .4em var(--phosphor-glow); will-change: transform;
+  transition: border-color .2s, box-shadow .2s;
+}
+.magnet span { pointer-events: none; will-change: transform; }
+.magnet:hover { border-color: var(--phosphor); box-shadow: 0 0 0 6px #05070c, 0 0 60px rgba(70, 255, 150, .5), inset 0 -8px 16px rgba(0, 0, 0, .7), inset 0 6px 10px rgba(255, 255, 255, .1); }
+.magnet:active { box-shadow: 0 0 0 6px #05070c, 0 0 24px rgba(70, 255, 150, .4), inset 0 6px 16px rgba(0, 0, 0, .8); }
+.magnet:focus-visible { outline: 3px solid var(--tape-yellow); outline-offset: 8px; }
+
+@media (max-width: 760px) {
+  :root { --title-size: min(52vw, 40vh); }
+  .cam-title { bottom: calc(var(--inset-y) * 2.4); }
+  .cam-title-b { bottom: calc(var(--inset-y) * 1.1); }
+  .eject-big { bottom: calc(var(--inset-y) * 2); }
+}

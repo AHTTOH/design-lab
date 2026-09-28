@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VHS</title>
+<meta name="description" content="브라운관을 켜고, 테이프를 돌리고, 채널을 넘기고, 꺼낸다. 1990년대 비디오테이프 인터랙션 연습.">
+<meta property="og:title" content="VHS">
+<meta property="og:image" content="https://ahttoh.github.io/design-lab/assets/thumb/vhs.webp">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=VT323&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/galmuri@2.40.3/dist/galmuri.css">
+<link rel="stylesheet" href="vhs.css">
+</head>
+<body>
+<!-- The picture tube: every scene draws its tape image here, clipped to its own sticky pin. -->
+<canvas id="picture" aria-hidden="true"></canvas>
+<!-- The glass: scanlines, static, tracking bands, curvature, vignette. It samples nothing, so it also works on file://. -->
+<canvas id="crt" aria-hidden="true"></canvas>
+
+<main>
+  <section class="scene power" id="s-power" style="--len:1000vh">
+    <div class="pin" id="power-pin">
+      <p class="osd osd-tl" id="power-osd"><span class="osd-word" id="power-osd-word">전원</span></p>
+      <h1 class="vhs-title" id="power-title">VHS</h1>
+    </div>
+  </section>
+
+  <section class="scene home" id="s-home" style="--len:1200vh">
+    <div class="pin" id="home-pin" role="img" aria-label="해 질 녘 빈 바닷가를 찍은 캠코더 영상">
+      <p class="osd osd-tl"><i class="g g-play" aria-hidden="true"></i><span>재생</span></p>
+      <p class="osd osd-tr">표준</p>
+      <p class="cam-title" id="home-title-a">여름 바다</p>
+      <p class="cam-title cam-title-b" id="home-title-b">해 질 녘</p>
+    </div>
+  </section>
+
+  <section class="scene rewind" id="s-rewind" style="--len:1400vh">
+    <div class="pin" id="rewind-pin" role="img" aria-label="스크롤 방향에 따라 되감기고 빨리 감기는 밤 도로 영상">
+      <p class="osd osd-tr">표준</p>
+      <p class="big-osd rew-big" id="rew-big" aria-live="off"><i class="g g-pause" id="rew-big-glyph" aria-hidden="true"></i><span id="rew-big-word">일시정지</span></p>
+    </div>
+  </section>
+
+  <section class="scene surf" id="s-surf" style="--len:1400vh">
+    <div class="pin" id="surf-pin" role="img" aria-label="채널을 넘길 때마다 바뀌는 화면">
+      <p class="osd osd-tr surf-osd"><span class="surf-label">채널</span><span class="surf-name" id="surf-name">바다</span></p>
+    </div>
+  </section>
+
+  <section class="scene eject" id="s-eject" style="--len:1200vh">
+    <div class="pin" id="eject-pin" role="img" aria-label="녹아내리며 컬러바로 바뀌는 오락실 영상">
+      <p class="osd osd-tl" id="eject-osd"><span id="eject-word">재생</span></p>
+      <p class="big-osd eject-big" id="eject-big"><i class="g g-eject" aria-hidden="true"></i><span>꺼내기</span></p>
+    </div>
+  </section>
+
+  <section class="scene off" id="s-off" style="--len:800vh">
+    <div class="pin" id="off-pin">
+      <p class="osd osd-tl" id="off-osd">전원 끄기</p>
+      <p class="vhs-title ghost" id="off-ghost" aria-hidden="true">VHS</p>
+      <div class="off-copy" id="off-copy"><a class="magnet" id="magnet" href="../"><span>목록으로</span></a></div>
+    </div>
+  </section>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/lenis@1.1.13/dist/lenis.min.js"></script>
+<!-- Classic scripts, not modules: file:// can load them and they share one global scope, in this order. -->
+<script src="js/core.js"></script>
+<script src="js/tape.js"></script>
+<script src="js/crt.js"></script>
+<script src="js/s1-power.js"></script>
+<script src="js/s2-home.js"></script>
+<script src="js/s3-rewind.js"></script>
+<script src="js/s4-surf.js"></script>
+<script src="js/s5-eject.js"></script>
+<script src="js/s6-off.js"></script>
+<script src="js/boot.js"></script>
+</body>
+</html>

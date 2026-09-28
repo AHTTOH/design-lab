@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MUSEUM</title>
+<meta name="description" content="밤의 작은 미술관을 걸어서 지나간다. 로비, 회화, 조각, 빛, 영상, 밤하늘. 스크롤로 걷는 1인칭 인터랙션 연습.">
+<meta property="og:title" content="MUSEUM">
+<meta property="og:image" content="https://ahttoh.github.io/design-lab/assets/thumb/museum.webp">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Syne:wght@500;700;800&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<style>
+  :root {
+    /* Every room's --len is multiplied by this. 2026-09-28: new studies sit near 7,000vh at 1. */
+    --scroll-stretch: 1;
+    --night: #04060c;
+    --paper: #f5f7fa;
+    --label-ink: #1a1d24;
+    --label-soft: #555c6b;
+    --glow: #dfe7ff;
+    --focus: #7aa2ff;
+    --display: 'Syne', 'Pretendard Variable', system-ui, sans-serif;
+    --korean: 'Pretendard Variable', system-ui, sans-serif;
+    --gutter: clamp(16px, 4vw, 64px);
+    --room-size: clamp(2.6rem, 1.2rem + 5.2vw, 6.4rem);
+    --ease: cubic-bezier(.16, 1, .3, 1);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    /* Reduced motion shows still viewpoints, so the long walk is shortened. */
+    :root { --scroll-stretch: .4; }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; overflow-x: clip; }
+  body { background: var(--night); color: var(--glow); font-family: var(--korean); }
+  ::selection { background: var(--focus); color: var(--night); }
+
+  #gl { position: fixed; inset: 0; width: 100%; height: 100%; display: block; z-index: 0; }
+
+  /* The rooms are scroll runways only. Everything visible is the fixed canvas plus the fixed overlay. */
+  main { position: relative; z-index: 1; pointer-events: none; }
+  .room { position: relative; height: calc(var(--len) * var(--scroll-stretch)); }
+  .sr { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+  .hud { position: fixed; inset: 0; z-index: 2; pointer-events: none; }
+  .fade { opacity: 0; will-change: opacity, transform; }
+
+  .intro { position: absolute; left: var(--gutter); bottom: 9vh; margin: 0; font-weight: 700; font-size: clamp(1.15rem, .9rem + 1vw, 1.7rem); letter-spacing: -.02em; color: var(--glow); text-shadow: 0 2px 30px rgba(0, 0, 0, .6); }
+  .cue { position: absolute; left: 50%; bottom: 4vh; width: 1px; height: 54px; background: rgba(223, 231, 255, .2); overflow: hidden; }
+  .cue::after { content: ''; position: absolute; inset: 0; background: linear-gradient(transparent, var(--glow)); transform-origin: top; animation: cue 2s var(--ease) infinite; }
+  @keyframes cue { 0% { transform: scaleY(0); opacity: 1; } 60% { transform: scaleY(1); opacity: 1; } 100% { transform: scaleY(1); opacity: 0; } }
+
+  .room-word { position: absolute; left: var(--gutter); top: 8vh; margin: 0; font-weight: 800; font-size: var(--room-size); letter-spacing: -.05em; line-height: 1; color: #fff; text-shadow: 0 4px 40px rgba(0, 0, 0, .55); }
+
+  /* Wall label: a small printed placard like the ones beside real works. */
+  .label { position: absolute; left: var(--gutter); bottom: 7vh; width: min(320px, calc(100vw - 2 * var(--gutter))); padding: 16px 18px 15px; background: var(--paper); color: var(--label-ink);
+    border-radius: 2px; box-shadow: 0 18px 50px rgba(0, 0, 0, .45); }
+  .label h3 { margin: 0 0 6px; font-size: 1.12rem; font-weight: 800; letter-spacing: -.03em; line-height: 1.25; }
+  .label p { margin: 0; font-size: .86rem; line-height: 1.5; color: var(--label-soft); letter-spacing: -.01em; }
+
+  .fin { position: absolute; left: 0; right: 0; bottom: 8vh; display: grid; justify-items: center; gap: 26px; }
+  .fin-line { margin: 0; font-weight: 700; font-size: clamp(1.2rem, .9rem + 1.2vw, 2rem); letter-spacing: -.03em; color: #fff; text-shadow: 0 2px 30px rgba(0, 0, 0, .7); }
+  .magnet { position: relative; display: grid; place-items: center; width: 128px; height: 128px; border-radius: 50%; text-decoration: none; color: var(--night); font: 800 1rem var(--korean);
+    background: radial-gradient(circle at 40% 30%, #fff 0%, #e4ebff 45%, #b9c8f5 100%); box-shadow: 0 0 0 1px rgba(255, 255, 255, .5), 0 0 60px rgba(160, 190, 255, .45), 0 20px 50px rgba(0, 0, 0, .5);
+    transition: box-shadow .4s var(--ease); will-change: transform; }
+  .magnet span { pointer-events: none; will-change: transform; }
+  .magnet:hover { box-shadow: 0 0 0 1px #fff, 0 0 90px rgba(170, 200, 255, .75), 0 20px 50px rgba(0, 0, 0, .5); }
+  .magnet:focus-visible { outline: 3px solid var(--focus); outline-offset: 8px; }
+  .fin.on .magnet { pointer-events: auto; }
+
+  .tilt-btn { position: absolute; right: var(--gutter); top: 3vh; padding: 10px 18px; border: 1px solid rgba(223, 231, 255, .5); border-radius: 999px; background: rgba(4, 6, 12, .55);
+    color: var(--glow); font: 700 14px var(--korean); pointer-events: auto; backdrop-filter: blur(6px); }
+  .tilt-btn:focus-visible { outline: 3px solid var(--focus); outline-offset: 4px; }
+
+  @media (max-width: 760px) {
+    .room-word { top: 6vh; }
+    .label { bottom: 5vh; padding: 13px 15px 12px; }
+    .label h3 { font-size: 1.02rem; }
+    .fin { bottom: 7vh; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .cue::after { animation: none; }
+    .magnet { transition: none; }
+  }
+</style>
+</head>
+<body>
+<canvas id="gl" aria-hidden="true"></canvas>
+
+<div class="hud">
+  <p class="intro fade" id="intro">밤의 미술관, 걸어서 둘러봅니다</p>
+  <div class="cue fade" id="cue" aria-hidden="true"></div>
+  <p class="room-word fade" id="room-word" aria-hidden="true"></p>
+  <aside class="label fade" id="label" aria-live="polite"><h3 id="label-title"></h3><p id="label-meta"></p></aside>
+  <div class="fin fade" id="fin">
+    <p class="fin-line">문 닫을 시간입니다</p>
+    <a class="magnet" id="magnet" href="../"><span>목록으로</span></a>
+  </div>
+  <button class="tilt-btn" id="tilt-btn" type="button" hidden>기울기 켜기</button>
+</div>
+
+<main>
+  <section class="room" id="r-lobby" style="--len:1100vh"><h1 class="sr">MUSEUM, 밤의 미술관 로비</h1></section>
+  <section class="room" id="r-paint" style="--len:1400vh"><h2 class="sr">회화 전시실</h2></section>
+  <section class="room" id="r-sculpt" style="--len:1200vh"><h2 class="sr">조각 전시실</h2></section>
+  <section class="room" id="r-light" style="--len:1100vh"><h2 class="sr">빛 설치 작품실</h2></section>
+  <section class="room" id="r-video" style="--len:1200vh"><h2 class="sr">영상실</h2></section>
+  <section class="room" id="r-exit" style="--len:1000vh"><h2 class="sr">출구, 밤하늘</h2></section>
+</main>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+<script src="https://cdn.jsdelivr.net/npm/lenis@1.1.13/dist/lenis.min.js"></script>
+<script type="module">
+%%JS%%
+</script>
+</body>
+</html>

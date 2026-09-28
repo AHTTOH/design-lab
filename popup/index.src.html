@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>POP-UP</title>
+<meta name="description" content="스크롤하면 펼쳐지는 3D 종이 팝업북. 숲, 도시, 바다, 우주.">
+<meta property="og:title" content="POP-UP">
+<meta property="og:image" content="https://ahttoh.github.io/design-lab/assets/thumb/popup.webp">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<style>
+  :root {
+    /* Every spread's --len is multiplied by this one value. 2026-09-28: the new-style batch settled on 1.0 (about 7,000vh). */
+    --scroll-stretch: 1;
+    --tomato: #ff4b33; --cobalt: #1f4bff; --emerald: #10b566; --sun: #ffc619; --pink: #ff3d9a; --teal: #00707a;
+    --paper: #ffffff; --ink: #0d1b5c; --bg: #063e4a;
+    --korean: 'Pretendard Variable', system-ui, sans-serif;
+    --ease: cubic-bezier(.16, 1, .3, 1);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; overflow-x: clip; }
+  body { background: var(--bg); color: var(--paper); font-family: var(--korean); }
+  ::selection { background: var(--sun); color: var(--ink); }
+
+  #gl { position: fixed; inset: 0; width: 100%; height: 100%; display: block; z-index: 0; }
+  main { position: relative; z-index: 1; }
+  .scene { position: relative; height: calc(var(--len) * var(--scroll-stretch)); }
+  .pin { position: sticky; top: 0; height: 100vh; overflow: hidden; pointer-events: none; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+  /* cover: scroll cue and the iOS tilt button */
+  .cue { position: absolute; left: 50%; bottom: 4.5vh; transform: translateX(-50%); display: grid; justify-items: center; gap: 10px; font: 700 14px var(--korean); letter-spacing: -.01em; color: var(--paper); will-change: opacity; }
+  .cue i { position: relative; display: block; width: 3px; height: 54px; border-radius: 3px; overflow: hidden; background: rgba(255, 255, 255, .22); }
+  .cue i::after { content: ''; position: absolute; inset: 0; background: var(--sun); transform-origin: top; animation: cue 1.8s var(--ease) infinite; }
+  @keyframes cue { 0% { transform: scaleY(0); opacity: 1; } 60% { transform: scaleY(1); opacity: 1; } 100% { transform: scaleY(1); opacity: 0; } }
+  .tilt-btn { position: absolute; left: 50%; top: 3.5vh; transform: translateX(-50%); pointer-events: auto; padding: 12px 22px; border: 3px solid var(--ink); border-radius: 14px;
+    font: 800 15px var(--korean); color: var(--ink); background: var(--sun); box-shadow: 0 5px 0 var(--ink); }
+  .tilt-btn:active { transform: translate(-50%, 3px); box-shadow: 0 2px 0 var(--ink); }
+  .tilt-btn:focus-visible { outline: 3px solid var(--paper); outline-offset: 5px; }
+
+  /* back cover: magnetic button back to the list */
+  .fin-copy { position: absolute; left: 0; right: 0; bottom: 7vh; display: grid; place-items: center; opacity: 0; will-change: opacity, transform; }
+  .magnet { display: grid; place-items: center; width: 136px; height: 136px; border-radius: 50%; pointer-events: auto; text-decoration: none;
+    color: var(--ink); font: 800 1.08rem var(--korean); letter-spacing: -.02em;
+    background: var(--sun); border: 4px solid var(--ink); box-shadow: 0 8px 0 var(--ink), 0 20px 40px rgba(0, 0, 0, .35);
+    transition: background-color .2s, box-shadow .15s; will-change: transform; }
+  .magnet span { pointer-events: none; will-change: transform; }
+  .magnet:hover { background: var(--pink); color: var(--paper); }
+  .magnet:active { box-shadow: 0 2px 0 var(--ink), 0 10px 24px rgba(0, 0, 0, .3); }
+  .magnet:focus-visible { outline: 4px solid var(--paper); outline-offset: 7px; }
+  .fin-copy.on .magnet { pointer-events: auto; }
+  .fin-copy:not(.on) .magnet { pointer-events: none; }
+  .fin-copy:focus-within { opacity: 1 !important; }
+
+  @media (max-width: 760px) {
+    .magnet { width: 118px; height: 118px; }
+    .fin-copy { bottom: 9vh; }
+  }
+  /* reduced motion: one finished spread per screen, no cue animation */
+  .reduce .scene { height: 100vh; }
+  .reduce .fin-copy { opacity: 1; }
+  @media (prefers-reduced-motion: reduce) {
+    .cue i::after { animation: none; transform: scaleY(1); }
+  }
+</style>
+</head>
+<body>
+<canvas id="gl" role="img" aria-label="종이 팝업북. 표지가 열리고 숲, 도시, 바다, 우주 장면이 차례로 접혀 올라온다."></canvas>
+
+<main>
+  <section class="scene" id="s-cover" style="--len:1000vh">
+    <div class="pin">
+      <h1 class="sr">POP-UP</h1>
+      <button class="tilt-btn" id="tilt-btn" type="button" hidden>기울기 켜기</button>
+      <div class="cue" id="cue"><i aria-hidden="true"></i><span>스크롤</span></div>
+    </div>
+  </section>
+  <section class="scene" id="s-forest" style="--len:1300vh"><h2 class="sr">숲</h2></section>
+  <section class="scene" id="s-city" style="--len:1300vh"><h2 class="sr">도시</h2></section>
+  <section class="scene" id="s-ocean" style="--len:1200vh"><h2 class="sr">바다</h2></section>
+  <section class="scene" id="s-space" style="--len:1200vh"><h2 class="sr">우주</h2></section>
+  <section class="scene" id="s-back" style="--len:1000vh">
+    <div class="pin">
+      <h2 class="sr">뒤표지</h2>
+      <div class="fin-copy" id="fin-copy"><a class="magnet" id="magnet" href="../"><span>목록으로</span></a></div>
+    </div>
+  </section>
+</main>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/lenis@1.1.13/dist/lenis.min.js"></script>
+<script type="module">
+%%JS%%
+</script>
+</body>
+</html>

@@ -25,6 +25,12 @@ after-dark-5/index.html       빌드 결과(약 1.1MB). 직접 고치지 않는�
 chrome/                       CHROME. Y2K 하늘색·크롬, 액체 금속, 비눗방울, 홀로 카드, 녹는 3D 글자, 하늘 비행. src/*.js 를 build.mjs 가 이어 붙여 index.html 생성, NOTES.md
 sumi/                         SUMI 수묵. 흰 화선지, 먹 번짐 WebGL, 산수 레이어, 붓글씨 획순, 먹물 영상 마스크, 매화. js/*.js + sumi.css, build.mjs, NOTES.md
 toytown/                      TOY TOWN. 절차 생성 3D 장난감 섬, 건물 낙하 조립, 낮밤, 차 추적 카메라, 틸트시프트. 단일 파일, NOTES.md
+vhs/                          VHS. 브라운관·비디오테이프, WebGL 유리층 + 2D 캔버스 테이프 효과, 스크롤 되감기, 채널 돌리기. js/*.js, NOTES.md (Flow 4편, 48크레딧)
+8bit/                         8BIT. 스크롤이 조작인 픽셀 횡스크롤 게임, 5개 월드, 정수 배율 픽셀. 단일 파일, NOTES.md
+popup/                        POP-UP. Three.js 색종이 팝업북, 경첩 접기, 펼침면 5개. src/*.js + build.mjs, NOTES.md
+museum/                       MUSEUM. 3D 미술관 산책, 생성 회화 6점, 조각, 레이저, 영상실. src/*.js + build.mjs, NOTES.md
+assets/vhs/, assets/popup/, assets/museum/  위 작품들의 영상·이미지
+tools/gen-images-vhs.mjs, gen-images-popup.mjs, gen-images-museum.mjs  각 작품 이미지 생성
 assets/chrome/, assets/sumi/  위 두 작품의 이미지·영상 (SUMI 영상 3편은 Flow, 36크레딧)
 tools/gen-images-chrome.mjs   CHROME 이미지 생성
 tools/gen-images-sumi.mjs     SUMI 이미지 생성 (prep-images-sumi.py 가 흰색 보정·알파 마스크)
