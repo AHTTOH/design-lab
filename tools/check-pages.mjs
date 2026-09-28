@@ -4,7 +4,7 @@
 import { chromium } from 'playwright';
 
 const BASE = process.argv[2] ?? 'https://ahttoh.github.io/design-lab/';
-const PAGES = ['', 'stardust/', 'after-dark-1/', 'after-dark-2/', 'after-dark-3/'];
+const PAGES = ['', 'stardust/', 'after-dark-1/', 'after-dark-2/', 'after-dark-3/', 'after-dark-4/'];
 const CONDITIONS = [
   { name: 'desktop', viewport: { width: 1440, height: 900 }, reducedMotion: 'no-preference' },
   { name: 'mobile', viewport: { width: 375, height: 812 }, reducedMotion: 'no-preference' },

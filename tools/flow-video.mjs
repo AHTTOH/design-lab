@@ -1,8 +1,11 @@
 // Drives the instafactory Flow pipeline (reuses its CDP + UI helpers) for design-lab videos.
 // Works around two gaps found on 2026-09-28: the changelog modal and 720p completion detection.
-// Usage: node flow-video.mjs download <outFile>
-//        node flow-video.mjs gen <outFile> "<prompt>" "<filename keyword regex>"
-import { readdirSync, statSync, copyFileSync, readFileSync } from 'node:fs';
+// Usage:
+//   node flow-video.mjs download <outFile>
+//   node flow-video.mjs gen <outFile> "<prompt>" "<filename keyword regex>"
+//   node flow-video.mjs bridge <outFile> "<prompt>" "<filename keyword regex>" <startImage> <endImage>
+//     Start and end images are uploaded to the Flow library and picked by file name, so give them unique names.
+import { readdirSync, statSync, copyFileSync, readFileSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 
@@ -17,9 +20,10 @@ const RESOLUTION = '720p';
 const DURATION_SEC = 8;
 const MAX_CREDITS = 20;
 const GEN_TIMEOUT_MS = 15 * 60 * 1000;
+const POLL_MS = 30000;
 
-const [mode, outFile, prompt] = process.argv.slice(2);
-if (!mode || !outFile) throw new Error('usage: flow-video.mjs <download|gen> <outFile> [prompt]');
+const [mode, outFile, prompt, keyword, startImage, endImage] = process.argv.slice(2);
+if (!mode || !outFile) throw new Error('usage: flow-video.mjs <download|gen|bridge> <outFile> [prompt] [keyword] [start] [end]');
 
 const videoCfg = loadVideoConfig();
 const state = JSON.parse(readFileSync(stateFile(), 'utf8'));
@@ -56,12 +60,14 @@ async function download() {
   throw new Error('download did not appear');
 }
 
-async function generate() {
-  if (!prompt) throw new Error('prompt required');
+async function openProject() {
   await sleep(3000);
   await dismissAll();
   await flow.requireProjectReady(page, state.projectUrl);
-  await flow.setPrompt(page, prompt);
+}
+
+/** Model settings, credit guard, start, then poll until the newest download name matches the keyword. */
+async function configureStartAndCollect() {
   await dismissAll();
   await flow.openSettings(page);
   const model = videoCfg.models['omni-1.1-flash'];
@@ -72,10 +78,10 @@ async function generate() {
   await flow.startGenerate(page);
   console.log('started');
   // Flow names the download after the content, so the newest tile is ours once its file name matches.
-  const expect = new RegExp(process.argv[5] ?? '.', 'i');
+  const expect = new RegExp(keyword ?? '.', 'i');
   const deadline = Date.now() + GEN_TIMEOUT_MS;
   while (Date.now() < deadline) {
-    await sleep(30000);
+    await sleep(POLL_MS);
     await dismissAll();
     if (await hasProgress()) continue;
     const name = await download();
@@ -85,9 +91,36 @@ async function generate() {
   throw new Error('generation timed out');
 }
 
+async function generate() {
+  if (!prompt) throw new Error('prompt required');
+  await openProject();
+  await flow.setPrompt(page, prompt);
+  await configureStartAndCollect();
+}
+
+async function bridge() {
+  if (!startImage || !endImage) throw new Error('bridge needs <startImage> <endImage>');
+  const start = path.resolve(startImage);
+  const end = path.resolve(endImage);
+  for (const f of [start, end]) if (!existsSync(f)) throw new Error(`missing image ${f}`);
+  await openProject();
+  for (const f of [start, end]) {
+    console.log(`upload ${path.basename(f)}`);
+    await dismissAll();
+    await flow.uploadAsset(page, f);
+  }
+  await dismissAll();
+  await flow.switchToFrameMode(page);
+  await flow.assignFrameImage(page, 0, path.basename(start));
+  await flow.assignFrameImage(page, 1, path.basename(end));
+  if (prompt) await flow.setPrompt(page, prompt);
+  await configureStartAndCollect();
+}
+
 try {
   if (mode === 'download') await download();
   else if (mode === 'gen') await generate();
+  else if (mode === 'bridge') await bridge();
   else throw new Error(`unknown mode ${mode}`);
 } finally {
   await page.close();

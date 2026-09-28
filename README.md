@@ -18,13 +18,17 @@ after-dark-2/index.html       AFTER DARK II. Three.js 파티클 모프, 스크�
 after-dark-3/index.src.html   AFTER DARK III 원본. 직접 고치는 파일
 after-dark-3/build.mjs        텍스처를 인라인해서 index.html 을 만든다
 after-dark-3/index.html       빌드 결과. 직접 고치지 않는다
+after-dark-4/index.html       AFTER DARK IV. WebGL2 유체 커서, 영상 텍스트 마스크, 192프레임 이미지 시퀀스 스크롤
 assets/img/                   ChatGPT OAuth 프록시로 만든 이미지(webp)
 assets/img/tex/               WebGL 텍스처. III 빌드 때 data URI 로 들어간다
+assets/img/ad4/               IV 의 완성차·분해도 스틸(webp 참조, png 는 원본 보관)
+assets/seq/ad4-explode/       IV 이미지 시퀀스 001~192.webp (1280x720, 장당 약 45KB, 합계 11MB)
 assets/video/                 Google Flow 영상(720p, 8초)과 첫 프레임 포스터
 assets/thumb/                 목록 페이지 썸네일
 tools/gen-images-1.mjs        I·II 이미지 생성 (chrome, glass, orb, bloom)
 tools/gen-images-2.mjs        III 이미지와 포스터 스틸 생성 (eclipse, jelly, mask, v1~v3)
-tools/flow-video.mjs          Flow 영상 생성·다운로드 드라이버
+tools/gen-images-ad4.mjs      IV 완성차(assembled)와 분해도(exploded) 이미지 생성
+tools/flow-video.mjs          Flow 영상 생성·다운로드 드라이버. bridge 모드는 시작·끝 이미지 사이를 잇는 영상을 만든다
 tools/check-pages.mjs         전 페이지 오류·넘침 검사 (npm run check)
 docs/HANDOFF-2026-09-28.md    인수인계서. 취향, 레퍼런스, 작업 순서, 기법 수치, 함정
 CLAUDE.md                     이 폴더를 열면 Claude 가 자동으로 읽는 요약
@@ -54,6 +58,26 @@ Flow 는 다운로드 파일 이름을 영상 내용으로 짓는다. 키워드�
 | `v1.mp4` | Slow drifting smoke and fog in total darkness, cinematic, black background, subtle blue rim light, static camera, no text |
 | `v2.mp4` | Deep cosmic nebula slowly swirling, violet and cobalt glow, tiny stars, dark background, slow motion, no text |
 | `v3.mp4` | Liquid chrome ocean with slow heavy waves, iridescent blue and magenta reflections, black sky, static camera, no text |
+
+## AFTER DARK IV 재료
+
+> 기록: 2026-09-28
+
+이미지 시퀀스는 두 장의 스틸 사이를 Flow bridge 로 이어서 만든다.
+
+1. `node tools/gen-images-ad4.mjs` 로 `assets/img/ad4/assembled.png`, `exploded.png` 를 만든다.
+2. `node tools/flow-video.mjs bridge assets/video/ad4-explode.mp4 "<프롬프트>" "<키워드>" assets/img/ad4/assembled.png assets/img/ad4/exploded.png`
+   Flow 라이브러리는 파일 이름으로 이미지를 검색해 고른다. 업로드 전에 `ad4-car-assembled.png` 처럼 겹치지 않는 이름으로 복사해서 넘긴다.
+3. 프레임으로 자른다.
+
+```
+ffmpeg -i assets/video/ad4-explode.mp4 -vf scale=1280:-2 -c:v libwebp -quality 50 assets/seq/ad4-explode/%03d.webp
+```
+
+bridge 프롬프트: `The complete hypercar slowly and smoothly disassembles, body panels, doors, wheels and internal parts glide apart along clean straight axes into a perfectly aligned exploded view. Static camera, black background, no text.`
+
+8초 24fps 라서 192장이 나온다. 우측 하단의 Flow 워터마크는 가리거나 자르지 않는다.
+터널 영상 `ad4-streak.mp4` 는 `gen` 모드로 만들었고 포스터는 빛줄기가 보이는 4초 지점 프레임이다.
 
 ## 배포와 백업
 

@@ -1,0 +1,717 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AFTER DARK IV</title>
+<meta name="description" content="WebGL2 유체 커서, 영상 텍스트 마스크, 192프레임 이미지 시퀀스 스크롤.">
+<meta property="og:title" content="AFTER DARK IV">
+<meta property="og:image" content="https://ahttoh.github.io/design-lab/assets/img/ad4/exploded.webp">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<style>
+  :root {
+    --bg: #000; --ink: #f3f3ff; --soft: #8a8fa8; --line: #1a1b28;
+    --cobalt: #3d4dff; --violet: #8b5cff; --magenta: #ff3fd0; --lime: #c6ff3d;
+    --display: clamp(3.4rem, 1rem + 12vw, 15rem);
+    --headline: clamp(2.6rem, 1rem + 6vw, 8rem);
+    --gutter: clamp(16px, 5vw, 80px);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--ink); font-family: 'Pretendard Variable', system-ui, sans-serif; overflow-x: clip; cursor: none; }
+  a, button { cursor: none; }
+  ::selection { background: var(--cobalt); }
+
+  /* global overlays */
+  #fluid { position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: 0; display: block; }
+  #dust { position: fixed; inset: 0; z-index: 60; pointer-events: none; }
+  .grain { position: fixed; inset: -50%; z-index: 55; pointer-events: none; opacity: .08; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); animation: grain .5s steps(4) infinite; }
+  @keyframes grain { 0% { transform: translate(0,0); } 25% { transform: translate(-3%,2%); } 50% { transform: translate(2%,-3%); } 75% { transform: translate(-2%,-1%); } 100% { transform: translate(0,0); } }
+  .cursor { position: fixed; left: 0; top: 0; width: 16px; height: 16px; border-radius: 50%; background: #fff; mix-blend-mode: difference; pointer-events: none; z-index: 70; transform: translate(-50%, -50%); transition: width .25s, height .25s; }
+  .cursor.big { width: 84px; height: 84px; }
+  .progress { position: fixed; left: 0; top: 0; height: 3px; width: 100%; z-index: 65; transform-origin: left; transform: scaleX(0); background: linear-gradient(90deg, var(--cobalt), var(--violet), var(--magenta), var(--lime)); }
+  .hud { position: fixed; left: var(--gutter); bottom: 28px; z-index: 50; display: flex; align-items: center; gap: 14px; font-size: 12px; letter-spacing: .28em; color: var(--soft); mix-blend-mode: difference; pointer-events: none; }
+  .hud b { color: var(--ink); font-weight: 700; font-variant-numeric: tabular-nums; }
+  .hud i { display: block; width: 44px; height: 1px; background: currentColor; }
+  .load { position: fixed; right: var(--gutter); top: 16px; z-index: 50; display: flex; align-items: center; gap: 10px; font-size: 11px; letter-spacing: .2em; color: var(--soft); pointer-events: none; transition: opacity .8s; font-variant-numeric: tabular-nums; }
+  .load i { display: block; width: 72px; height: 1px; background: var(--line); position: relative; overflow: hidden; }
+  .load i::after { content: ''; position: absolute; inset: 0; background: var(--lime); transform-origin: left; transform: scaleX(var(--k, 0)); }
+  .load.done { opacity: 0; }
+  .load[hidden] { display: none; }
+
+  main { position: relative; z-index: 1; }
+  .scene { position: relative; height: var(--len); }
+  .pin { position: sticky; top: 0; height: 100vh; overflow: hidden; }
+  .ln { display: block; }
+  .ch { display: inline-block; will-change: transform; }
+  .ci { display: inline-block; }
+
+  /* 01 hero */
+  .hero .pin { display: grid; place-items: center; text-align: center; }
+  .kicker { position: absolute; top: 9vh; left: 0; right: 0; font-size: 13px; letter-spacing: .34em; color: var(--soft); margin: 0; }
+  .title { font-size: var(--display); font-weight: 900; line-height: .82; letter-spacing: -.065em; margin: 0; perspective: 900px; }
+  .title-wrap { position: relative; pointer-events: none; }
+  .num4 { position: absolute; right: -.25em; top: -.4em; font-size: calc(var(--display) * .56); font-weight: 900; font-style: italic; letter-spacing: -.02em; color: var(--lime); text-shadow: 0 0 40px rgba(198, 255, 61, .45); will-change: transform, opacity; }
+  .scroll-cue { position: absolute; bottom: 4vh; left: 50%; transform: translateX(-50%); font-size: 12px; letter-spacing: .25em; color: var(--soft); }
+  .scroll-cue::after { content: ''; display: block; width: 1px; height: 48px; margin: 10px auto 0; background: linear-gradient(var(--ink), transparent); animation: drip 1.8s infinite; transform-origin: top; }
+  @keyframes drip { 0% { transform: scaleY(0); } 60% { transform: scaleY(1); } 100% { transform: scaleY(1); opacity: 0; } }
+
+  /* velocity marquee */
+  .marquee { overflow: hidden; padding: 6vh 0; border-block: 1px solid var(--line); background: var(--bg); position: relative; }
+  .marquee-track { display: flex; gap: 4vw; white-space: nowrap; font-size: clamp(3rem, 1rem + 8vw, 10rem); font-weight: 900; letter-spacing: -.04em; will-change: transform; width: max-content; }
+  .marquee-track span:nth-child(odd) { -webkit-text-stroke: 1.5px var(--ink); color: transparent; }
+  .marquee-track span:nth-child(4n) { color: var(--magenta); -webkit-text-stroke: 0; }
+  .marquee-track span:nth-child(4n+2) { color: var(--cobalt); -webkit-text-stroke: 0; }
+
+  /* 02 mask typo */
+  .fill { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .mask-veil { position: absolute; inset: 0; background: #000; opacity: 0; pointer-events: none; }
+
+  /* 03 + 04 image sequence */
+  .seq .pin { background: var(--bg); }
+  .seq-canvas { transform-origin: 50% 50%; will-change: transform; }
+  .vignette { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse at 50% 50%, transparent 45%, rgba(0,0,0,.72) 100%); }
+  .seq-title { position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-50%); margin: 0; text-align: center; font-size: var(--display); font-weight: 900; letter-spacing: -.065em; line-height: .85; color: transparent; -webkit-text-stroke: 2px var(--ink); pointer-events: none; will-change: opacity, transform; }
+  .counter { position: absolute; right: var(--gutter); top: 9vh; text-align: right; font-weight: 900; letter-spacing: -.05em; line-height: .85; font-size: clamp(2.4rem, 1rem + 4vw, 6rem); font-variant-numeric: tabular-nums; pointer-events: none; text-shadow: 0 4px 30px rgba(0,0,0,.8); }
+  .counter small { display: block; font-size: 12px; font-weight: 600; letter-spacing: .3em; color: var(--soft); margin-top: 10px; }
+  .lines { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
+  .lines path { fill: none; stroke-width: 1.2; stroke-dasharray: 1; stroke-dashoffset: 1; }
+  .lines circle { stroke: none; }
+  .tag { position: absolute; left: var(--x); top: var(--y); display: flex; align-items: center; gap: 10px; margin: 0; padding: 8px 12px; font-size: clamp(15px, .8rem + .4vw, 20px); font-weight: 700; letter-spacing: -.01em; white-space: nowrap; background: rgba(0,0,0,.62); border-left: 2px solid var(--c); opacity: 0; will-change: transform, opacity; }
+  .tag::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--c); box-shadow: 0 0 12px var(--c); }
+  .re-head { position: absolute; left: var(--gutter); top: 10vh; margin: 0; font-size: var(--headline); font-weight: 900; letter-spacing: -.05em; line-height: .9; white-space: nowrap; will-change: text-shadow; }
+  .re-head.end { top: auto; bottom: 14vh; color: var(--lime); }
+
+  /* 05 finale */
+  .vwrap { position: absolute; inset: 0; will-change: opacity, transform; }
+  .vwrap video { width: 100%; height: 100%; object-fit: cover; display: block; background: var(--bg); }
+  .shade { position: absolute; inset: 0; background: radial-gradient(ellipse at center, rgba(0,0,0,.15) 20%, rgba(0,0,0,.8)); pointer-events: none; }
+  .fin .pin { display: grid; place-items: center; text-align: center; }
+  .fin-title .ln:last-child { color: var(--lime); text-shadow: 0 0 50px rgba(198, 255, 61, .45); }
+  .fin-title { position: relative; margin: 0; font-size: min(var(--display), 12.5vw); font-weight: 900; line-height: .82; letter-spacing: -.065em; text-shadow: 0 10px 60px rgba(0,0,0,.6); }
+  .fin-copy { position: absolute; left: 0; right: 0; bottom: 9vh; display: grid; place-items: center; opacity: 0; }
+  .magnet { display: grid; place-items: center; width: 150px; height: 150px; border-radius: 50%; background: var(--cobalt); color: #fff; font: 800 1.05rem 'Pretendard Variable', sans-serif; text-decoration: none; box-shadow: 0 0 80px rgba(61, 77, 255, .7); will-change: transform; }
+  .magnet span { pointer-events: none; will-change: transform; }
+  .magnet:focus-visible { outline: 3px solid var(--lime); outline-offset: 6px; }
+
+  @media (orientation: portrait) {
+    .tag { left: var(--mx); top: var(--my); }
+  }
+  @media (max-width: 760px) {
+    .counter { top: 7vh; }
+    .re-head { top: 12vh; }
+  }
+  @media (pointer: coarse) {
+    html, body, a, button { cursor: auto; }
+    .cursor { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .grain, .scroll-cue::after { animation: none; }
+    .load { transition: none; }
+  }
+</style>
+</head>
+<body>
+<canvas id="fluid" aria-hidden="true"></canvas>
+<canvas id="dust" aria-hidden="true"></canvas>
+<div class="grain" aria-hidden="true"></div>
+<div class="cursor" id="cursor" aria-hidden="true"></div>
+<div class="progress" id="progress" aria-hidden="true"></div>
+<div class="hud" aria-hidden="true"><b id="hud-i">01</b><i></i><span id="hud-n">FLUID</span></div>
+<div class="load" id="load" aria-hidden="true"><span id="load-n">000/192</span><i></i></div>
+
+<main>
+  <section class="scene hero" id="s-hero" data-scene="FLUID" style="--len:350vh">
+    <div class="pin">
+      <p class="kicker">INTERACTION STUDY 2026</p>
+      <div class="title-wrap"><h1 class="title" id="title" data-split>AFTER|DARK</h1><div class="num4" id="num4" aria-hidden="true">IV</div></div>
+      <div class="scroll-cue">SCROLL</div>
+    </div>
+  </section>
+
+  <div class="marquee" id="marquee" aria-hidden="true"><div class="marquee-track" id="marquee-track">
+    <span>AFTER DARK IV</span><span>NIGHT RUN</span><span>분해</span><span>재조립</span><span>AFTER DARK IV</span><span>NIGHT RUN</span><span>분해</span><span>재조립</span>
+  </div></div>
+
+  <section class="scene mask" id="s-mask" data-scene="NIGHT RUN" style="--len:550vh">
+    <div class="pin">
+      <canvas class="fill" id="mask-canvas" role="img" aria-label="NIGHT RUN"></canvas>
+      <div class="mask-veil" id="mask-veil"></div>
+      <video id="streak" muted loop playsinline preload="auto" poster="../assets/video/ad4-streak.webp" aria-hidden="true" hidden><source src="../assets/video/ad4-streak.mp4" type="video/mp4"></video>
+    </div>
+  </section>
+
+  <section class="scene seq" id="s-anatomy" data-scene="ANATOMY" style="--len:1600vh">
+    <div class="pin" id="anatomy-pin">
+      <canvas class="fill seq-canvas" id="anatomy-canvas" role="img" aria-label="하이퍼카가 부품 단위로 분해되는 장면"></canvas>
+      <div class="vignette"></div>
+      <h2 class="seq-title" id="anatomy-title">ANATOMY</h2>
+      <div class="counter" aria-hidden="true"><span id="counter">001</span><small>/ 192</small></div>
+      <svg class="lines" id="lines" aria-hidden="true"></svg>
+      <p class="tag" data-part="door">도어·바디 패널</p>
+      <p class="tag" data-part="seat">시트</p>
+      <p class="tag" data-part="chassis">섀시</p>
+      <p class="tag" data-part="battery">배터리 모듈</p>
+      <p class="tag" data-part="suspension">서스펜션</p>
+    </div>
+  </section>
+
+  <section class="scene seq" id="s-reassembly" data-scene="REASSEMBLY" style="--len:850vh">
+    <div class="pin">
+      <canvas class="fill seq-canvas" id="re-canvas" role="img" aria-label="분해된 부품이 다시 한 대의 차로 합쳐지는 장면"></canvas>
+      <div class="vignette"></div>
+      <h2 class="re-head" id="re-head" aria-label="REASSEMBLY"></h2>
+      <h2 class="re-head end" id="re-end" aria-label="다시 하나로"></h2>
+    </div>
+  </section>
+
+  <section class="scene fin" id="s-finale" data-scene="FINALE" style="--len:550vh">
+    <div class="pin">
+      <div class="vwrap" id="fin-v"><video muted loop playsinline preload="auto" poster="../assets/video/v3.webp" aria-hidden="true"><source src="../assets/video/v3.mp4" type="video/mp4"></video></div>
+      <div class="shade"></div>
+      <h2 class="fin-title" id="fin-title" data-split>AFTER DARK|IV</h2>
+      <div class="fin-copy" id="fin-copy"><a class="magnet" id="magnet" href="../"><span>목록으로</span></a></div>
+    </div>
+  </section>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/lenis@1.1.13/dist/lenis.min.js"></script>
+<script type="module">
+/* ───────── config ───────── */
+const CONFIG = {
+  dprMax: 1.5,
+  lenisLerp: 0.08,
+  palette: { cobalt: '#3d4dff', violet: '#8b5cff', magenta: '#ff3fd0', lime: '#c6ff3d' },
+  dustColors: ['#ffffff', '#9aa6ff', '#ff3fd0', '#c6ff3d'],
+  glyphs: '!<>-_\\/[]{}=+*^?#01アイウエオカキクケコ',
+  fluid: {
+    simRes: 128, dyeRes: 512, dyeResMobile: 256, mobileBreak: 760,
+    pressureIters: 20, pressureDecay: 0.8, curl: 28,
+    velocityDissipation: 0.25, dyeDissipation: 0.9,
+    splatRadius: 0.22, splatForce: 5200,
+    heroGain: 1, outsideGain: 0.3, displayGain: 0.8, colorScale: 0.55, colorEvery: 28,
+    idleMs: 1600, idleForce: 0.25, introSplats: 6, maxDt: 1 / 30,
+  },
+  mask: {
+    word: 'NIGHT RUN', zoomLetter: 1, weight: 900, widthFill: 0.9, maxFontPx: 520,
+    fadeIn: [0, 0.12], zoom: [0.12, 0.7], coverSafety: 1.25, outlineAlpha: 0.35, outlineAlphaStill: 0.9, outlinePx: 1.5, veil: [0.93, 1],
+  },
+  seq: {
+    count: 192, dir: '../assets/seq/ad4-explode/', ext: '.webp', frameW: 1280, frameH: 720,
+    preloadSteps: [16, 8, 4, 2, 1], concurrency: 6, portraitZoom: 1.2,
+  },
+  anatomy: {
+    fadeIn: [0, 0.04], title: [0.02, 0.1], frames: [0.04, 0.7], zoom: [1, 1.12],
+    calloutStart: 0.72, calloutStep: 0.045, calloutDraw: 0.04, calloutOut: [0.97, 1],
+  },
+  // Anchors are normalised coordinates on the final (exploded) frame. Labels sit at viewport % (landscape x,y / portrait mx,my).
+  parts: {
+    door:       { at: [0.16, 0.26],  x: 5,  y: 13, mx: 12, my: 30, c: 'cobalt' },
+    seat:       { at: [0.39, 0.27],  x: 42, y: 7,  mx: 50, my: 22, c: 'violet' },
+    chassis:    { at: [0.375, 0.46], x: 4,  y: 52, mx: 6,  my: 70, c: 'lime' },
+    battery:    { at: [0.47, 0.625], x: 28, y: 88, mx: 38, my: 77, c: 'magenta' },
+    suspension: { at: [0.69, 0.73],  x: 58, y: 90, mx: 50, my: 84, c: 'cobalt' },
+  },
+  reassembly: {
+    frames: [0.08, 0.86], zoomIn: 1.35, zoomOut: [0.86, 0.98], endScale: 1,
+    panVw: 16, headIn: [0.02, 0.16], headOut: [0.62, 0.7], endIn: [0.86, 0.96],
+  },
+  finale: { videoIn: [0, 0.15], titleIn: [0.08, 0.5], copyIn: [0.55, 0.65] },
+  velocity: { rgbMax: 14, rgbGain: 0.35, marqueeBase: 1.2, marqueeGain: 0.6, skewMax: 20, skewGain: 0.8 },
+};
+
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const clamp01 = (v) => Math.min(1, Math.max(0, v));
+const seg = (p, a, b) => clamp01((p - a) / (b - a));
+const segR = (p, r) => seg(p, r[0], r[1]);
+const smooth = (x) => x * x * (3 - 2 * x);
+const lerp = (a, b, t) => a + (b - a) * t;
+const rand = (a, b) => a + Math.random() * (b - a);
+const $ = (s) => document.querySelector(s);
+const $$ = (s) => [...document.querySelectorAll(s)];
+const dprNow = () => Math.min(devicePixelRatio || 1, CONFIG.dprMax);
+const glyph = () => CONFIG.glyphs[Math.floor(Math.random() * CONFIG.glyphs.length)];
+
+/* ───────── scroll engine ───────── */
+gsap.registerPlugin(ScrollTrigger);
+const lenis = reduce ? null : new Lenis({ lerp: CONFIG.lenisLerp });
+if (lenis) { lenis.on('scroll', ScrollTrigger.update); gsap.ticker.add((t) => lenis.raf(t * 1000)); gsap.ticker.lagSmoothing(0); }
+const velocity = () => (lenis ? lenis.velocity : 0);
+
+/** Progress of a sticky scene plus an optional visibility flag while any part is on screen. */
+function track(sel, onProgress, onVisible) {
+  const el = $(sel);
+  onProgress(0);
+  ScrollTrigger.create({ trigger: el, start: 'top top', end: 'bottom bottom', onUpdate: (s) => onProgress(s.progress) });
+  if (onVisible) ScrollTrigger.create({ trigger: el, start: 'top bottom', end: 'bottom top', onToggle: (s) => onVisible(s.isActive) });
+}
+
+/** Split "line|line" text into .ln > .ch > .ci spans and return the .ch nodes. */
+function split(el) {
+  const lines = el.textContent.split('|');
+  el.setAttribute('aria-label', lines.join(' '));
+  el.innerHTML = lines.map((l) => `<span class="ln" aria-hidden="true">${[...l].map((c) => c === ' ' ? '<span class="ch sp">&nbsp;</span>' : `<span class="ch"><span class="ci">${c}</span></span>`).join('')}</span>`).join('');
+  return [...el.querySelectorAll('.ch:not(.sp)')];
+}
+$$('[data-split]').forEach(split);
+
+/* ───────── pointer, cursor, stardust ───────── */
+const pointer = { x: innerWidth / 2, y: innerHeight / 2, moved: 0 };
+addEventListener('pointermove', (e) => { pointer.x = e.clientX; pointer.y = e.clientY; pointer.moved = performance.now(); });
+const cursor = $('#cursor'), cpos = { x: pointer.x, y: pointer.y };
+gsap.ticker.add(() => { cpos.x += (pointer.x - cpos.x) * 0.2; cpos.y += (pointer.y - cpos.y) * 0.2; cursor.style.transform = `translate(${cpos.x}px, ${cpos.y}px) translate(-50%, -50%)`; });
+$$('.magnet').forEach((el) => {
+  el.addEventListener('pointerenter', () => cursor.classList.add('big'));
+  el.addEventListener('pointerleave', () => cursor.classList.remove('big'));
+});
+
+const dust = $('#dust'), dctx = dust.getContext('2d'), bits = [];
+const fitDust = () => { dust.width = innerWidth; dust.height = innerHeight; };
+fitDust(); addEventListener('resize', fitDust);
+addEventListener('pointermove', (e) => {
+  if (reduce) return;
+  for (let i = 0; i < 4; i++) bits.push({ x: e.clientX, y: e.clientY, vx: rand(-1, 1), vy: rand(-1.6, .4), life: 1, c: CONFIG.dustColors[i % CONFIG.dustColors.length] });
+});
+let dustDirty = false;
+gsap.ticker.add(() => {
+  if (!bits.length && !dustDirty) return;
+  dctx.clearRect(0, 0, dust.width, dust.height);
+  for (let i = bits.length - 1; i >= 0; i--) {
+    const p = bits[i]; p.vy += .05; p.x += p.vx; p.y += p.vy; p.life -= .018;
+    if (p.life <= 0) { bits.splice(i, 1); continue; }
+    dctx.globalAlpha = p.life; dctx.fillStyle = p.c; dctx.shadowColor = p.c; dctx.shadowBlur = 10;
+    dctx.beginPath(); dctx.arc(p.x, p.y, 2 * p.life, 0, Math.PI * 2); dctx.fill();
+  }
+  dctx.globalAlpha = 1; dctx.shadowBlur = 0;
+  dustDirty = bits.length > 0;
+});
+
+/* ───────── progress bar + HUD ───────── */
+const progressEl = $('#progress');
+ScrollTrigger.create({ start: 0, end: 'max', onUpdate: (s) => { progressEl.style.transform = `scaleX(${s.progress})`; } });
+const hudI = $('#hud-i'), hudN = $('#hud-n');
+$$('[data-scene]').forEach((el, i) => ScrollTrigger.create({ trigger: el, start: 'top center', end: 'bottom center',
+  onToggle: (s) => { if (s.isActive) { hudI.textContent = String(i + 1).padStart(2, '0'); hudN.textContent = el.dataset.scene; } } }));
+
+/* ───────── WebGL2 stable fluids ───────── */
+const FLUID_VS = `#version 300 es
+in vec2 aPos; uniform vec2 texel; out vec2 vUv, vL, vR, vT, vB;
+void main(){ vUv=aPos*.5+.5; vL=vUv-vec2(texel.x,0.); vR=vUv+vec2(texel.x,0.); vT=vUv+vec2(0.,texel.y); vB=vUv-vec2(0.,texel.y); gl_Position=vec4(aPos,0.,1.); }`;
+const FS_HEAD = '#version 300 es\nprecision highp float; precision highp sampler2D; in vec2 vUv, vL, vR, vT, vB; out vec4 o;\n';
+const FLUID_FS = {
+  splat: `uniform sampler2D uTarget; uniform float aspect, radius; uniform vec3 color; uniform vec2 point;
+    void main(){ vec2 p=vUv-point; p.x*=aspect; o=vec4(texture(uTarget,vUv).xyz+exp(-dot(p,p)/radius)*color,1.); }`,
+  advect: `uniform sampler2D uVelocity, uSource; uniform vec2 texel; uniform float dt, dissipation;
+    void main(){ vec2 c=vUv-dt*texture(uVelocity,vUv).xy*texel; o=texture(uSource,c)/(1.+dissipation*dt); o.a=1.; }`,
+  divergence: `uniform sampler2D uVelocity;
+    void main(){ float L=texture(uVelocity,vL).x, R=texture(uVelocity,vR).x, T=texture(uVelocity,vT).y, B=texture(uVelocity,vB).y; vec2 C=texture(uVelocity,vUv).xy;
+      if(vL.x<0.)L=-C.x; if(vR.x>1.)R=-C.x; if(vT.y>1.)T=-C.y; if(vB.y<0.)B=-C.y; o=vec4(.5*(R-L+T-B),0.,0.,1.); }`,
+  curl: `uniform sampler2D uVelocity;
+    void main(){ float L=texture(uVelocity,vL).y, R=texture(uVelocity,vR).y, T=texture(uVelocity,vT).x, B=texture(uVelocity,vB).x; o=vec4(.5*(R-L-T+B),0.,0.,1.); }`,
+  vorticity: `uniform sampler2D uVelocity, uCurl; uniform float curl, dt;
+    void main(){ float L=texture(uCurl,vL).x, R=texture(uCurl,vR).x, T=texture(uCurl,vT).x, B=texture(uCurl,vB).x, C=texture(uCurl,vUv).x;
+      vec2 f=.5*vec2(abs(T)-abs(B),abs(R)-abs(L)); f/=length(f)+1e-4; f*=curl*C; f.y*=-1.;
+      o=vec4(clamp(texture(uVelocity,vUv).xy+f*dt,-1000.,1000.),0.,1.); }`,
+  pressure: `uniform sampler2D uPressure, uDivergence;
+    void main(){ float L=texture(uPressure,vL).x, R=texture(uPressure,vR).x, T=texture(uPressure,vT).x, B=texture(uPressure,vB).x;
+      o=vec4((L+R+B+T-texture(uDivergence,vUv).x)*.25,0.,0.,1.); }`,
+  gradient: `uniform sampler2D uPressure, uVelocity;
+    void main(){ float L=texture(uPressure,vL).x, R=texture(uPressure,vR).x, T=texture(uPressure,vT).x, B=texture(uPressure,vB).x;
+      o=vec4(texture(uVelocity,vUv).xy-vec2(R-L,T-B),0.,1.); }`,
+  scale: `uniform sampler2D uTexture; uniform float value; void main(){ o=value*texture(uTexture,vUv); }`,
+  display: `uniform sampler2D uTexture; uniform float brightness;
+    void main(){ vec3 c=texture(uTexture,vUv).rgb*brightness; o=vec4(1.-exp(-c),1.); }`,
+};
+
+function createFluid(canvas, cfg) {
+  const gl = canvas.getContext('webgl2', { alpha: false, antialias: false, depth: false, stencil: false, preserveDrawingBuffer: false });
+  if (!gl) throw new Error('WebGL2 context unavailable');
+  if (!gl.getExtension('EXT_color_buffer_float')) throw new Error('EXT_color_buffer_float unavailable, cannot render to half-float targets');
+
+  const compile = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; };
+  const vs = compile(gl.VERTEX_SHADER, FLUID_VS);
+  const programs = Object.fromEntries(Object.entries(FLUID_FS).map(([name, body]) => {
+    const p = gl.createProgram(); gl.attachShader(p, vs); gl.attachShader(p, compile(gl.FRAGMENT_SHADER, FS_HEAD + body));
+    gl.bindAttribLocation(p, 0, 'aPos'); gl.linkProgram(p);
+    if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(`fluid program ${name}: ${gl.getProgramInfoLog(p)}`);
+    const u = {}; for (let i = 0; i < gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS); i++) { const n = gl.getActiveUniform(p, i).name; u[n] = gl.getUniformLocation(p, n); }
+    return [name, { p, u }];
+  }));
+
+  gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+  gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+
+  const target = (w, h) => {
+    const tex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, tex);
+    [[gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]].forEach(([k, v]) => gl.texParameteri(gl.TEXTURE_2D, k, v));
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16F, w, h, 0, gl.RGBA, gl.HALF_FLOAT, null);
+    const fbo = gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+    if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) throw new Error('fluid framebuffer incomplete');
+    gl.viewport(0, 0, w, h); gl.clearColor(0, 0, 0, 1); gl.clear(gl.COLOR_BUFFER_BIT);
+    return { tex, fbo, w, h, texel: [1 / w, 1 / h] };
+  };
+  const doubleTarget = (w, h) => { const d = { read: target(w, h), write: target(w, h), swap() { [d.read, d.write] = [d.write, d.read]; } }; return d; };
+  const gridSize = (res) => { const a = canvas.width / canvas.height, lo = Math.round(res), hi = Math.round(res * Math.max(a, 1 / a)); return a > 1 ? [hi, lo] : [lo, hi]; };
+
+  let vel, dye, pres, div, curlT;
+  const alloc = () => {
+    const [sw, sh] = gridSize(cfg.simRes), [dw, dh] = gridSize(innerWidth < cfg.mobileBreak ? cfg.dyeResMobile : cfg.dyeRes);
+    vel = doubleTarget(sw, sh); pres = doubleTarget(sw, sh); div = target(sw, sh); curlT = target(sw, sh); dye = doubleTarget(dw, dh);
+  };
+  const fit = () => { const d = dprNow(); canvas.width = Math.round(innerWidth * d); canvas.height = Math.round(innerHeight * d); alloc(); };
+  fit();
+
+  let unit = 0;
+  const use = (name) => { const prog = programs[name]; gl.useProgram(prog.p); unit = 0; return prog.u; };
+  const tex = (loc, t) => { gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, t.tex); gl.uniform1i(loc, unit++); };
+  const blit = (dst) => {
+    if (dst) { gl.viewport(0, 0, dst.w, dst.h); gl.bindFramebuffer(gl.FRAMEBUFFER, dst.fbo); }
+    else { gl.viewport(0, 0, canvas.width, canvas.height); gl.bindFramebuffer(gl.FRAMEBUFFER, null); }
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  };
+
+  function splat(x, y, dx, dy, color) {
+    const aspect = canvas.width / canvas.height, r = (cfg.splatRadius / 100) * (aspect > 1 ? aspect : 1);
+    let u = use('splat');
+    gl.uniform1f(u.aspect, aspect); gl.uniform2f(u.point, x, y); gl.uniform1f(u.radius, r); gl.uniform2fv(u.texel, vel.read.texel);
+    tex(u.uTarget, vel.read); gl.uniform3f(u.color, dx, dy, 0); blit(vel.write); vel.swap();
+    u = use('splat');
+    gl.uniform1f(u.aspect, aspect); gl.uniform2f(u.point, x, y); gl.uniform1f(u.radius, r); gl.uniform2fv(u.texel, dye.read.texel);
+    tex(u.uTarget, dye.read); gl.uniform3f(u.color, color[0], color[1], color[2]); blit(dye.write); dye.swap();
+  }
+
+  function step(dt) {
+    let u = use('curl'); gl.uniform2fv(u.texel, vel.read.texel); tex(u.uVelocity, vel.read); blit(curlT);
+    u = use('vorticity'); gl.uniform2fv(u.texel, vel.read.texel); tex(u.uVelocity, vel.read); tex(u.uCurl, curlT); gl.uniform1f(u.curl, cfg.curl); gl.uniform1f(u.dt, dt); blit(vel.write); vel.swap();
+    u = use('divergence'); gl.uniform2fv(u.texel, vel.read.texel); tex(u.uVelocity, vel.read); blit(div);
+    u = use('scale'); gl.uniform2fv(u.texel, pres.read.texel); tex(u.uTexture, pres.read); gl.uniform1f(u.value, cfg.pressureDecay); blit(pres.write); pres.swap();
+    for (let i = 0; i < cfg.pressureIters; i++) { u = use('pressure'); gl.uniform2fv(u.texel, pres.read.texel); tex(u.uPressure, pres.read); tex(u.uDivergence, div); blit(pres.write); pres.swap(); }
+    u = use('gradient'); gl.uniform2fv(u.texel, vel.read.texel); tex(u.uPressure, pres.read); tex(u.uVelocity, vel.read); blit(vel.write); vel.swap();
+    u = use('advect'); gl.uniform2fv(u.texel, vel.read.texel); tex(u.uVelocity, vel.read); tex(u.uSource, vel.read); gl.uniform1f(u.dt, dt); gl.uniform1f(u.dissipation, cfg.velocityDissipation); blit(vel.write); vel.swap();
+    u = use('advect'); gl.uniform2fv(u.texel, vel.read.texel); tex(u.uVelocity, vel.read); tex(u.uSource, dye.read); gl.uniform1f(u.dt, dt); gl.uniform1f(u.dissipation, cfg.dyeDissipation); blit(dye.write); dye.swap();
+  }
+
+  function render() { const u = use('display'); gl.uniform2fv(u.texel, dye.read.texel); tex(u.uTexture, dye.read); gl.uniform1f(u.brightness, cfg.displayGain); blit(null); }
+
+  return { splat, step, render, fit };
+}
+
+{
+  const cfg = CONFIG.fluid, canvas = $('#fluid');
+  const hex = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16) / 255);
+  const colors = Object.values(CONFIG.palette).map(hex);
+  let fluid = null;
+  if (reduce) canvas.hidden = true;
+  else {
+    try { fluid = createFluid(canvas, cfg); } catch (e) { console.error('fluid simulation disabled:', e); canvas.hidden = true; }
+  }
+  if (fluid) {
+    let ci = 0, uses = 0, gain = cfg.heroGain, covered = 0, last = { x: pointer.x, y: pointer.y }, lastIdle = 0;
+    // One hue per stroke keeps the dye saturated instead of mixing to grey.
+    const nextColor = (k, fresh) => { if (fresh || ++uses % cfg.colorEvery === 0) ci = (ci + 1) % colors.length; return colors[ci].map((c) => c * k * cfg.colorScale); };
+    const push = (x, y, dx, dy, k, fresh = false) => fluid.splat(x / innerWidth, 1 - y / innerHeight, dx * cfg.splatForce * k, -dy * cfg.splatForce * k, nextColor(k, fresh));
+    const burst = (k) => { const a = rand(0, Math.PI * 2), s = rand(.02, .05); push(rand(.2, .8) * innerWidth, rand(.25, .75) * innerHeight, Math.cos(a) * s, Math.sin(a) * s, k, true); };
+    for (let i = 0; i < cfg.introSplats; i++) burst(cfg.heroGain);
+    addEventListener('pointermove', (e) => {
+      const dx = (e.clientX - last.x) / innerWidth, dy = (e.clientY - last.y) / innerHeight;
+      last = { x: e.clientX, y: e.clientY };
+      if (dx || dy) push(e.clientX, e.clientY, dx, dy, gain);
+    });
+    track('#s-hero', () => {}, (on) => { gain = on ? cfg.heroGain : cfg.outsideGain; });
+    // Opaque sequence scenes cover the whole viewport while pinned, so the sim can rest there.
+    ['#s-anatomy', '#s-reassembly'].forEach((sel) => ScrollTrigger.create({ trigger: sel, start: 'top top', end: 'bottom bottom', onToggle: (s) => { covered += s.isActive ? 1 : -1; } }));
+    addEventListener('resize', () => fluid.fit());
+    gsap.ticker.add((time, deltaMs) => {
+      if (covered > 0) return;
+      const now = performance.now();
+      if (gain === cfg.heroGain && now - pointer.moved > cfg.idleMs && now - lastIdle > cfg.idleMs) { lastIdle = now; burst(cfg.idleForce); }
+      fluid.step(Math.min(deltaMs / 1000, cfg.maxDt));
+      fluid.render();
+    });
+  }
+}
+
+/* ───────── 01 hero: letters scatter ───────── */
+{
+  const chars = $$('#title .ch'), inner = $$('#title .ci'), num4 = $('#num4');
+  const vec = chars.map(() => ({ x: rand(-180, 180), y: rand(-340, 340), r: rand(-60, 60), z: rand(-200, 400) }));
+  if (!reduce) gsap.from(inner, { yPercent: 120, rotate: 12, opacity: 0, stagger: .05, duration: 1.2, ease: 'expo.out', delay: .2 });
+  track('#s-hero', (p) => {
+    const k = reduce ? 0 : smooth(seg(p, .12, .92));
+    chars.forEach((c, i) => { const v = vec[i]; c.style.transform = `translate3d(${v.x * k}px, ${v.y * k}px, ${v.z * k}px) rotate(${v.r * k}deg)`; c.style.opacity = 1 - k; });
+    num4.style.transform = `translate(${k * 28}vw, ${k * -18}vh) scale(${1 + k * 3}) rotate(${-8 + k * 40}deg)`;
+    num4.style.opacity = 1 - seg(k, .35, .8);
+  });
+}
+
+/* ───────── velocity marquee ───────── */
+{
+  const v = CONFIG.velocity, trackEl = $('#marquee-track'); let mx = 0, skew = 0, on = false;
+  ScrollTrigger.create({ trigger: '#marquee', start: 'top bottom', end: 'bottom top', onToggle: (s) => { on = s.isActive; } });
+  gsap.ticker.add(() => {
+    if (!on || reduce) return;
+    const vel = velocity();
+    mx -= v.marqueeBase + Math.abs(vel) * v.marqueeGain;
+    const half = trackEl.scrollWidth / 2; if (-mx > half) mx += half;
+    skew += (Math.max(-v.skewMax, Math.min(v.skewMax, vel * v.skewGain)) - skew) * .1;
+    trackEl.style.transform = `translateX(${mx}px) skewX(${-skew}deg)`;
+  });
+}
+
+/* ───────── video: play only when visible ───────── */
+function bindVideo(v) {
+  if (reduce) { v.pause(); return; }
+  let ready = v.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA, visible = false;
+  const sync = () => { if (!ready) return; if (visible) v.play().catch((e) => console.warn('video play blocked:', e.name)); else v.pause(); };
+  v.addEventListener('canplay', () => { ready = true; sync(); });
+  v.addEventListener('error', () => console.error('video failed to load:', v.currentSrc || v.querySelector('source')?.src));
+  return (on) => { visible = on; sync(); };
+}
+
+/* ───────── 02 mask typo: video through giant text ───────── */
+{
+  const cfg = CONFIG.mask, canvas = $('#mask-canvas'), ctx = canvas.getContext('2d'), video = $('#streak'), veil = $('#mask-veil');
+  const poster = new Image(); poster.src = video.getAttribute('poster');
+  poster.addEventListener('error', () => console.error('mask poster failed to load:', poster.src));
+  let W = 0, H = 0, font = 0, textX = 0, baseY = 0, origin = { x: 0, y: 0 }, maxScale = 1, prog = 0, visible = false;
+  const setFont = () => { ctx.font = `${cfg.weight} ${font}px "Pretendard Variable", sans-serif`; };
+  const layout = () => {
+    const d = dprNow(); W = canvas.clientWidth; H = canvas.clientHeight;
+    canvas.width = Math.round(W * d); canvas.height = Math.round(H * d);
+    font = 100; setFont(); font = Math.min(cfg.maxFontPx, (W * cfg.widthFill * 100) / ctx.measureText(cfg.word).width); setFont();
+    const total = ctx.measureText(cfg.word).width; textX = (W - total) / 2;
+    const letter = cfg.word[cfg.zoomLetter], before = cfg.word.slice(0, cfg.zoomLetter);
+    const m = ctx.measureText(letter), capH = m.actualBoundingBoxAscent;
+    baseY = H / 2 + capH / 2;
+    const lx = textX + ctx.measureText(before + letter).width - m.width;
+    const stemW = m.actualBoundingBoxRight + m.actualBoundingBoxLeft;
+    origin = { x: lx + (m.actualBoundingBoxRight - m.actualBoundingBoxLeft) / 2, y: baseY - capH / 2 };
+    maxScale = cfg.coverSafety * Math.max(W / stemW, H / capH);
+  };
+  // Scale around the letter stem while sliding that stem to the viewport centre.
+  const zoomAt = (s, z) => { ctx.translate(lerp(origin.x, W / 2, z), lerp(origin.y, H / 2, z)); ctx.scale(s, s); ctx.translate(-origin.x, -origin.y); };
+  const coverDraw = (src, sw, sh) => { const s = Math.max(W / sw, H / sh), dw = sw * s, dh = sh * s; ctx.drawImage(src, (W - dw) / 2, (H - dh) / 2, dw, dh); };
+  const source = () => {
+    if (!reduce && video.readyState >= 2) return [video, video.videoWidth, video.videoHeight];
+    if (poster.complete && poster.naturalWidth) return [poster, poster.naturalWidth, poster.naturalHeight];
+    return null;
+  };
+  const draw = () => {
+    const d = canvas.width / W, src = source();
+    ctx.setTransform(d, 0, 0, d, 0, 0); ctx.clearRect(0, 0, W, H);
+    const fade = reduce ? 1 : smooth(segR(prog, cfg.fadeIn)), z = reduce ? 0 : smooth(segR(prog, cfg.zoom));
+    const s = Math.exp(Math.log(maxScale) * z * z) * (1 + (1 - fade) * .08);
+    const full = z >= 1;
+    ctx.globalAlpha = fade;
+    if (!full) {
+      ctx.save(); zoomAt(s, z);
+      setFont(); ctx.fillStyle = '#fff'; ctx.fillText(cfg.word, textX, baseY); ctx.restore();
+      ctx.globalCompositeOperation = 'source-in';
+    }
+    if (src) coverDraw(...src);
+    ctx.globalCompositeOperation = 'source-over';
+    if (!full) {
+      ctx.save(); zoomAt(s, z);
+      setFont(); ctx.globalAlpha = fade * (reduce ? cfg.outlineAlphaStill : cfg.outlineAlpha) * (1 - z); ctx.strokeStyle = CONFIG.palette.violet; ctx.lineWidth = cfg.outlinePx / s; ctx.strokeText(cfg.word, textX, baseY); ctx.restore();
+    }
+    ctx.globalAlpha = 1;
+    veil.style.opacity = reduce ? 0 : smooth(segR(prog, cfg.veil));
+  };
+  layout();
+  document.fonts.ready.then(() => { layout(); draw(); });
+  addEventListener('resize', () => { layout(); draw(); });
+  poster.addEventListener('load', () => draw());
+  const setVisible = bindVideo(video);
+  track('#s-mask', (p) => { prog = p; if (reduce || !visible) draw(); }, (on) => { visible = on; if (setVisible) setVisible(on); draw(); });
+  gsap.ticker.add(() => { if (visible && !reduce) draw(); });
+}
+
+/* ───────── image sequence: progressive preload shared by two scenes ───────── */
+function createFrameStore(cfg, onProgress) {
+  const frames = new Array(cfg.count).fill(null), listeners = new Set();
+  const url = (i) => `${cfg.dir}${String(i + 1).padStart(3, '0')}${cfg.ext}`;
+  const order = [], seen = new Set();
+  const add = (i) => { if (!seen.has(i)) { seen.add(i); order.push(i); } };
+  add(0); add(cfg.count - 1);
+  cfg.preloadSteps.forEach((step) => { for (let i = 0; i < cfg.count; i += step) add(i); });
+  let done = 0;
+  const loadOne = async (i) => {
+    const img = new Image(); img.src = url(i);
+    try { await img.decode(); frames[i] = img; listeners.forEach((f) => f()); }
+    catch (e) { console.error(`sequence frame ${url(i)} failed to load`, e); }
+    onProgress(++done, cfg.count);
+  };
+  const load = (indices) => {
+    let k = 0;
+    const worker = async () => { while (k < indices.length) await loadOne(indices[k++]); };
+    return Promise.all(Array.from({ length: cfg.concurrency }, worker));
+  };
+  const nearest = (i) => {
+    if (frames[i]) return frames[i];
+    for (let d = 1; d < cfg.count; d++) { if (frames[i - d]) return frames[i - d]; if (frames[i + d]) return frames[i + d]; }
+    return null;
+  };
+  return { loadAll: () => load(order), loadOnly: (list) => load(list), nearest, onLoad: (f) => listeners.add(f) };
+}
+
+/** Where the frame lands on a W x H viewport: cover in landscape, width-fit with extra zoom in portrait. */
+function frameRect(W, H) {
+  const { frameW: fw, frameH: fh, portraitZoom } = CONFIG.seq;
+  const s = W >= H ? Math.max(W / fw, H / fh) : (W / fw) * portraitZoom;
+  const w = fw * s, h = fh * s;
+  return { x: (W - w) / 2, y: (H - h) / 2, w, h };
+}
+
+function createSeqPlayer(canvas, store) {
+  const ctx = canvas.getContext('2d');
+  let want = 0, drawn = null, active = false, still = null;
+  const fit = () => { const d = dprNow(); canvas.width = Math.round(canvas.clientWidth * d); canvas.height = Math.round(canvas.clientHeight * d); drawn = null; if (still) drawStill(still); };
+  const tick = () => {
+    if (!active) return;
+    const img = store.nearest(want);
+    if (!img || img === drawn) return;
+    const r = frameRect(canvas.width, canvas.height);
+    ctx.fillStyle = '#000'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, r.x, r.y, r.w, r.h);
+    drawn = img;
+  };
+  fit(); addEventListener('resize', fit);
+  gsap.ticker.add(tick);
+  return { set: (i) => { want = i; }, show: (on) => { active = on; }, draw: tick, image: (img) => { still = img; drawStill(img); } };
+  function drawStill(img) {
+    const s = Math.max(canvas.width / img.naturalWidth, canvas.height / img.naturalHeight), w = img.naturalWidth * s, h = img.naturalHeight * s;
+    ctx.fillStyle = '#000'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, (canvas.width - w) / 2, (canvas.height - h) / 2, w, h);
+  }
+}
+
+const loadEl = $('#load'), loadN = $('#load-n');
+const store = createFrameStore(CONFIG.seq, (n, total) => {
+  loadN.textContent = `${String(n).padStart(3, '0')}/${total}`;
+  loadEl.style.setProperty('--k', n / total);
+  if (n === total) loadEl.classList.add('done');
+});
+const LAST = CONFIG.seq.count - 1;
+
+/* ───────── 03 anatomy ───────── */
+{
+  const cfg = CONFIG.anatomy, pin = $('#anatomy-pin'), canvas = $('#anatomy-canvas'), title = $('#anatomy-title'), counter = $('#counter'), svg = $('#lines');
+  const player = createSeqPlayer(canvas, store);
+  const NS = 'http://www.w3.org/2000/svg';
+  const tags = $$('#anatomy-pin .tag').map((el) => {
+    const part = CONFIG.parts[el.dataset.part], color = CONFIG.palette[part.c];
+    el.style.cssText += `--x:${part.x}%;--y:${part.y}%;--mx:${part.mx}%;--my:${part.my}%;--c:${color}`;
+    const path = document.createElementNS(NS, 'path'), dot = document.createElementNS(NS, 'circle');
+    path.setAttribute('pathLength', '1'); path.setAttribute('stroke', color); dot.setAttribute('fill', color); dot.setAttribute('r', '0');
+    svg.append(path, dot);
+    return { el, part, path, dot, box: null };
+  });
+  let prog = 0, zoom = 1;
+  const measure = () => { tags.forEach((t) => { t.box = { x: t.el.offsetLeft, y: t.el.offsetTop, w: t.el.offsetWidth, h: t.el.offsetHeight }; }); svg.setAttribute('viewBox', `0 0 ${pin.clientWidth} ${pin.clientHeight}`); };
+  const anchor = (at) => {
+    const W = pin.clientWidth, H = pin.clientHeight, r = frameRect(W, H);
+    return { x: W / 2 + (r.x + at[0] * r.w - W / 2) * zoom, y: H / 2 + (r.y + at[1] * r.h - H / 2) * zoom };
+  };
+  const drawCallouts = () => {
+    const out = 1 - smooth(segR(prog, cfg.calloutOut));
+    tags.forEach((t, i) => {
+      const a = cfg.calloutStart + i * cfg.calloutStep, k = reduce ? 1 : smooth(seg(prog, a, a + cfg.calloutDraw));
+      const show = k * out;
+      const p = anchor(t.part.at), b = t.box, fromLeft = b.x + b.w / 2 < p.x;
+      const sx = fromLeft ? b.x + b.w : b.x, sy = b.y + b.h / 2;
+      t.path.setAttribute('d', `M${sx},${sy} H${p.x} V${p.y}`);
+      t.path.style.strokeDashoffset = 1 - k;
+      t.path.style.opacity = out;
+      t.dot.setAttribute('cx', p.x); t.dot.setAttribute('cy', p.y); t.dot.setAttribute('r', 4 * seg(k, .8, 1) * out);
+      t.el.style.opacity = show;
+      t.el.style.transform = `translateX(${(1 - k) * (fromLeft ? -24 : 24)}px)`;
+    });
+  };
+  const render = (p) => {
+    prog = p;
+    const idx = reduce ? LAST : Math.round(segR(p, cfg.frames) * LAST);
+    player.set(idx);
+    counter.textContent = String(idx + 1).padStart(3, '0');
+    zoom = reduce ? cfg.zoom[1] : lerp(cfg.zoom[0], cfg.zoom[1], smooth(p));
+    canvas.style.transform = `scale(${zoom})`;
+    canvas.style.opacity = reduce ? 1 : smooth(segR(p, cfg.fadeIn));
+    const t = reduce ? 1 : seg(p, cfg.title[0], cfg.title[1]);
+    title.style.opacity = 1 - smooth(t);
+    title.style.transform = `translateY(-50%) scale(${1 + t * .25})`;
+    drawCallouts();
+  };
+  measure();
+  document.fonts.ready.then(() => { measure(); drawCallouts(); });
+  addEventListener('resize', () => { measure(); drawCallouts(); });
+  track('#s-anatomy', render, (on) => { player.show(on); player.draw(); });
+  store.onLoad(() => player.draw());
+}
+
+/* ───────── 04 reassembly: reversed frames, tighter framing, scramble ───────── */
+function scrambleTo(el, text, k, seed) {
+  const chars = [...text];
+  el.textContent = chars.map((c, i) => { if (c === ' ') return ' '; const t = seed[i]; return k >= t ? c : k > t - .5 ? glyph() : ''; }).join('');
+}
+{
+  const cfg = CONFIG.reassembly, canvas = $('#re-canvas'), head = $('#re-head'), end = $('#re-end');
+  const player = createSeqPlayer(canvas, store);
+  const HEAD = head.getAttribute('aria-label'), END = end.getAttribute('aria-label');
+  const seedOf = (t) => [...t].map(() => rand(.5, 1));
+  const headSeed = seedOf(HEAD), endSeed = seedOf(END);
+  let still = null;
+  if (reduce) { still = new Image(); still.src = '../assets/img/ad4/assembled.webp'; still.decode().then(() => player.image(still)).catch((e) => console.error('assembled still failed to load', e)); }
+  track('#s-reassembly', (p) => {
+    if (!reduce) player.set(Math.round((1 - segR(p, cfg.frames)) * LAST));
+    const out = smooth(segR(p, cfg.zoomOut));
+    const s = reduce ? cfg.endScale : lerp(cfg.zoomIn, cfg.endScale, out);
+    const pan = reduce ? 0 : lerp(cfg.panVw, -cfg.panVw, smooth(seg(p, 0, cfg.zoomOut[0]))) * (1 - out);
+    canvas.style.transform = `translateX(${pan}vw) scale(${s})`;
+    const hk = reduce ? 1 : segR(p, cfg.headIn), ho = reduce ? 0 : segR(p, cfg.headOut);
+    scrambleTo(head, HEAD, hk * 1.0001, headSeed);
+    head.style.opacity = 1 - ho;
+    scrambleTo(end, END, reduce ? 1 : segR(p, cfg.endIn) * 1.0001, endSeed);
+  }, (on) => { player.show(on && !reduce); player.draw(); });
+  store.onLoad(() => player.draw());
+  // Velocity-reactive RGB split on the headlines.
+  const v = CONFIG.velocity;
+  let off = 0;
+  gsap.ticker.add(() => {
+    if (reduce) return;
+    off += (Math.max(-v.rgbMax, Math.min(v.rgbMax, velocity() * v.rgbGain)) - off) * .15;
+    const sh = Math.abs(off) < .05 ? 'none' : `${off}px 0 ${CONFIG.palette.magenta}, ${-off}px 0 ${CONFIG.palette.cobalt}`;
+    head.style.textShadow = sh; end.style.textShadow = sh;
+  });
+}
+
+/* kick off frame loading: everything with motion, only the one still frame when reduced */
+if (reduce) { loadEl.hidden = true; store.loadOnly([LAST]); } else store.loadAll();
+
+/* ───────── 05 finale ───────── */
+{
+  const cfg = CONFIG.finale, wrap = $('#fin-v'), chars = $$('#fin-title .ch'), copy = $('#fin-copy');
+  const vec = chars.map(() => ({ x: rand(-220, 220), y: rand(-260, 260), r: rand(-70, 70) }));
+  const setVisible = bindVideo(wrap.querySelector('video'));
+  track('#s-finale', (p) => {
+    const a = reduce ? 1 : smooth(segR(p, cfg.videoIn));
+    wrap.style.opacity = a; wrap.style.transform = `scale(${1.15 - a * .15})`;
+    const k = reduce ? 0 : 1 - smooth(segR(p, cfg.titleIn));
+    chars.forEach((c, i) => { const v = vec[i]; c.style.transform = `translate(${v.x * k}px, ${v.y * k}px) rotate(${v.r * k}deg)`; c.style.opacity = 1 - k; });
+    const c = reduce ? 1 : seg(p, cfg.copyIn[0], cfg.copyIn[1]);
+    copy.style.opacity = c; copy.style.transform = `translateY(${(1 - c) * 40}px)`;
+    copy.style.pointerEvents = c > .5 ? 'auto' : 'none';
+  }, (on) => { if (setVisible) setVisible(on); });
+
+  const magnet = $('#magnet'), label = magnet.querySelector('span');
+  magnet.addEventListener('pointermove', (e) => {
+    const r = magnet.getBoundingClientRect(), dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2);
+    gsap.to(magnet, { x: dx * .45, y: dy * .45, duration: .4, ease: 'power3.out' });
+    gsap.to(label, { x: dx * .2, y: dy * .2, duration: .4, ease: 'power3.out' });
+  });
+  magnet.addEventListener('pointerleave', () => gsap.to([magnet, label], { x: 0, y: 0, duration: .8, ease: 'elastic.out(1, .4)' }));
+}
+</script>
+</body>
+</html>
