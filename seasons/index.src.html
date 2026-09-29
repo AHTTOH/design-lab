@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SEASONS</title>
+<meta name="description" content="언덕 위 나무 한 그루가 봄, 여름, 가을, 겨울을 지나는 스크롤 인터랙션 연습.">
+<meta property="og:title" content="SEASONS">
+<meta property="og:image" content="https://ahttoh.github.io/design-lab/assets/thumb/seasons.webp">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hahmlet:wght@300..700&display=swap">
+<link rel="stylesheet" href="seasons.css">
+</head>
+<body>
+<canvas id="gl" aria-hidden="true"></canvas>
+<div class="veil" aria-hidden="true"></div>
+
+<main>
+  <section class="scene" id="s-spring" style="--len:1300vh">
+    <div class="pin">
+      <h1 class="title" id="title">Seasons</h1>
+      <h2 class="word w-spring" id="w-spring">봄</h2>
+      <div class="cue" id="cue" aria-hidden="true"><span class="drop"></span>스크롤</div>
+    </div>
+  </section>
+  <section class="scene" id="s-summer" style="--len:1400vh">
+    <div class="pin"><h2 class="word w-summer" id="w-summer">여름</h2></div>
+  </section>
+  <section class="scene" id="s-autumn" style="--len:1300vh">
+    <div class="pin"><h2 class="word w-autumn" id="w-autumn">가을</h2></div>
+  </section>
+  <section class="scene" id="s-winter" style="--len:1300vh">
+    <div class="pin"><h2 class="word w-winter" id="w-winter">겨울</h2></div>
+  </section>
+  <section class="scene" id="s-year" style="--len:1000vh">
+    <div class="pin"><h2 class="word w-year" id="w-year">한 해</h2></div>
+  </section>
+  <section class="scene" id="s-finale" style="--len:900vh">
+    <div class="pin">
+      <h2 class="word w-finale" id="w-finale">다시 봄</h2>
+      <div class="fin" id="fin"><a class="magnet" id="magnet" href="../"><span>목록으로</span></a></div>
+    </div>
+  </section>
+</main>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"
+} }
+</script>
+<script src="https://cdn.jsdelivr.net/npm/lenis@1.1.13/dist/lenis.min.js"></script>
+<script type="module">
+%%SCRIPTS%%
+</script>
+</body>
+</html>

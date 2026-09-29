@@ -1,0 +1,1401 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MARBLE RUN</title>
+<meta name="description" content="스크롤로 구슬을 굴려 도미노, 시소, 나선 레일, 깔때기, 실로폰, 톱니, 도르래, 투석기, 종을 차례로 움직이는 3D 연쇄 장치.">
+<meta property="og:title" content="MARBLE RUN">
+<meta property="og:image" content="https://ahttoh.github.io/design-lab/assets/thumb/marble.webp">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@800&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<style>
+  :root {
+    /* Every segment's --len is multiplied by this one value. 2026-09-29: 1 gives 7,000vh in six segments. */
+    --scroll-stretch: 1;
+    --studio: #0b3fb8; --floor: #064f5c; --ink: #04143d;
+    --tomato: #ff3b2f; --sun: #ffc21a; --emerald: #00c070; --white: #ffffff;
+    --display: 'Unbounded', 'Pretendard Variable', system-ui, sans-serif;
+    --korean: 'Pretendard Variable', system-ui, sans-serif;
+    --title: clamp(3.4rem, 0.6rem + 11vw, 13rem);
+    --word: clamp(3rem, 0.6rem + 8.4vw, 10rem);
+    --gutter: clamp(16px, 5vw, 80px);
+    --ease: cubic-bezier(.16, 1, .3, 1);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; overflow-x: clip; }
+  body { background: var(--floor); color: var(--white); font-family: var(--korean); }
+  ::selection { background: var(--sun); color: var(--ink); }
+
+  #gl { position: fixed; inset: 0; width: 100%; height: 100%; display: block; z-index: 0; }
+  main { position: relative; z-index: 1; }
+  .scene { position: relative; height: calc(var(--len) * var(--scroll-stretch)); }
+  .pin { position: sticky; top: 0; height: 100vh; overflow: hidden; pointer-events: none; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+  /* display words: big, solid, no tracking. Opacity and lift come from the segment progress in JS. */
+  .title, .word { margin: 0; font-family: var(--display); font-weight: 800; line-height: .92; letter-spacing: -.03em; white-space: nowrap;
+    color: var(--white); text-shadow: 0 .04em 0 var(--ink); will-change: opacity, transform; }
+  .title { position: absolute; left: var(--gutter); top: 8vh; font-size: var(--title); }
+  .title span { display: block; }
+  .title span + span { color: var(--sun); }
+  .word { position: absolute; font-size: var(--word); opacity: 0; }
+  .w-left { left: var(--gutter); bottom: 8vh; }
+  .w-right { right: var(--gutter); top: 9vh; text-align: right; }
+
+  .cue { position: absolute; left: 50%; bottom: 5vh; transform: translateX(-50%); display: grid; justify-items: center; gap: 10px;
+    font: 700 14px var(--korean); letter-spacing: -.01em; color: var(--white); will-change: opacity; }
+  .cue i { display: block; width: 22px; height: 22px; border-radius: 50%;
+    background: radial-gradient(circle at 34% 30%, #fff 0 12%, #7fb0ff 22%, #1f4bff 62%, #04143d 100%);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, .35); animation: roll 1.6s var(--ease) infinite; }
+  @keyframes roll { 0% { transform: translateY(-14px) rotate(0); } 55% { transform: translateY(12px) rotate(200deg); } 100% { transform: translateY(-14px) rotate(360deg); } }
+
+  /* finale: magnetic button back to the list */
+  .fin-copy { position: absolute; left: 0; right: 0; bottom: 6vh; display: grid; place-items: center; opacity: 0; will-change: opacity, transform; }
+  .magnet { display: grid; place-items: center; width: 136px; height: 136px; border-radius: 50%; text-decoration: none;
+    color: var(--ink); font: 800 1.08rem var(--korean); letter-spacing: -.02em;
+    background: var(--sun); border: 4px solid var(--ink); box-shadow: 0 8px 0 var(--ink), 0 20px 40px rgba(0, 0, 0, .35);
+    transition: background-color .2s, box-shadow .15s, color .2s; will-change: transform; }
+  .magnet span { pointer-events: none; will-change: transform; }
+  .magnet:hover { background: var(--tomato); color: var(--white); }
+  .magnet:active { box-shadow: 0 2px 0 var(--ink), 0 10px 24px rgba(0, 0, 0, .3); }
+  .magnet:focus-visible { outline: 4px solid var(--white); outline-offset: 7px; }
+  .fin-copy.on .magnet { pointer-events: auto; }
+  .fin-copy:not(.on) .magnet { pointer-events: none; }
+  .fin-copy:focus-within { opacity: 1 !important; }
+
+  @media (max-width: 760px) {
+    :root { --title: 17.5vw; --word: 15vw; }
+    .title { top: 7vh; }
+    .magnet { width: 118px; height: 118px; }
+    .fin-copy { bottom: 8vh; }
+  }
+  /* reduced motion: one static overview of the finished machine, one screen per segment */
+  .reduce .scene { height: 100vh; }
+  .reduce .cue, .reduce .word { display: none; }
+  .reduce .fin-copy { opacity: 1; }
+  .reduce .fin-copy .magnet { pointer-events: auto; }
+  @media (prefers-reduced-motion: reduce) { .cue i { animation: none; } }
+</style>
+</head>
+<body>
+<canvas id="gl" role="img" aria-label="구슬이 나무 레일을 굴러 도미노를 쓰러뜨리고, 시소가 두 번째 구슬을 쏘아 올리고, 나선 레일과 깔때기와 실로폰을 지나 톱니를 돌리고, 깃발이 오르고, 투석기가 쇠구슬을 종에 맞히고, 선풍기 바람에 MARBLE RUN 현수막이 오르는 연쇄 장치."></canvas>
+
+<main>
+  <section class="scene" id="s-start" style="--len:1100vh">
+    <div class="pin">
+      <h1 class="title" id="title" aria-label="MARBLE RUN"><span>MARBLE</span><span>RUN</span></h1>
+      <p class="word w-left" data-word="0.42,0.8" aria-hidden="true">ROLL</p>
+      <div class="cue" id="cue" aria-hidden="true"><i></i>스크롤</div>
+    </div>
+  </section>
+  <section class="scene" id="s-domino" style="--len:1300vh">
+    <div class="pin"><h2 class="word w-right" data-word="0.06,0.42">TOPPLE</h2></div>
+  </section>
+  <section class="scene" id="s-helix" style="--len:1200vh">
+    <div class="pin"><h2 class="word w-left" data-word="0.02,0.3">FLIP</h2></div>
+  </section>
+  <section class="scene" id="s-funnel" style="--len:1200vh">
+    <div class="pin"><h2 class="word w-right" data-word="0.08,0.46">SPIN</h2></div>
+  </section>
+  <section class="scene" id="s-gears" style="--len:1200vh">
+    <div class="pin"><h2 class="word w-left" data-word="0.04,0.4">WIND</h2></div>
+  </section>
+  <section class="scene" id="s-finale" style="--len:1000vh">
+    <div class="pin">
+      <h2 class="sr">MARBLE RUN</h2>
+      <div class="fin-copy" id="fin-copy"><a class="magnet" id="magnet" href="../"><span>목록으로</span></a></div>
+    </div>
+  </section>
+</main>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+<script src="https://cdn.jsdelivr.net/npm/lenis@1.1.13/dist/lenis.min.js"></script>
+<script type="module">
+/* ---- src/00-core.js ---- */
+/* MARBLE RUN: shared core. Fragments in marble/src are concatenated in file-name order by marble/build.mjs
+   into one inline module (file:// cannot load module files), so later fragments see these names.
+   Everything on screen is a pure function of one scroll timeline t (segment index + progress inside it),
+   so scrolling back up rewinds every part exactly. Only the fan idle spin and cloth flutter use a clock. */
+import * as THREE from 'three';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+/* ───────── config ───────── */
+const COLOR = {
+  studioTop: '#0a2a9e', studioHorizon: '#0a6a80', floor: '#07566a',
+  tomato: '#ff3b2f', sun: '#ffc21a', emerald: '#00c070', cobalt: '#1f4bff', pink: '#ff2f8e', violet: '#7a3cff', orange: '#ff7a1a', aqua: '#00c4d6',
+  white: '#ffffff', ink: '#04143d',
+  woodA: '#8f2a10', woodB: '#4a1205', brass: '#ffd45e', chrome: '#ffffff', rope: '#15277a',
+};
+
+const CONFIG = {
+  dprMax: 1.5,
+  lenisLerp: 0.08,
+  mobileBreak: 760,
+  // actor sampling step in timeline units (rolling rotation is integrated once at load, then looked up)
+  sampleDt: 0.0004,
+  marble: { r: 0.18, ballR: 0.16 },
+  light: { exposure: 1.05, key: 2.6, keyDir: [-0.55, 1, 0.62], hemi: 0.7, env: 0.85, shadowMap: 2048, shadowMapMobile: 1024,
+    shadowMin: 5, shadowMax: 26, shadowPerDist: 0.62 },
+  bloom: { strength: 0.32, radius: 0.45, threshold: 1.05 },
+  table: { x: [-19, 22.5], z: [-6.6, 8.2], top: 0, thick: 0.7, grainPx: 1024 },
+  camera: { fov: 34, near: 0.1, far: 400, portraitHfovScale: 0.92, portraitWideScale: 0.64, portraitNear: 9, portraitFar: 24, portraitMaxFov: 96, portraitDist: 1.08 },
+  // One timeline: t = segment index + progress inside that segment. Every event below is a t value.
+  time: {
+    gate: [0.3, 0.34], rampA: [0.34, 0.95], rollA: [0.95, 1.04],
+    snake: [1.04, 1.66], wave: [1.66, 1.84], big: [1.84, 1.99], seesaw: [1.97, 2.05], launch: 2.04, flight: [2.04, 2.22],
+    helix: [2.22, 2.96], funnel: [2.97, 3.46], drop: [3.46, 3.52], xylo: [3.52, 3.93], toBucket: [3.93, 3.99],
+    bucket: [4.0, 4.46], flagTop: 4.46, fire: [4.58, 4.63], release: 4.605, fly: [4.605, 4.94], bounce: [4.94, 5.02],
+    fan: [4.99, 5.12], banner: [5.1, 5.56], finIn: [5.72, 5.84],
+  },
+  layout: {
+    tower: [-16.4, -4.6],
+    zig: { y0: 6.4, xa: -16.0, xb: -11.8, z0: -4.6, zStep: 1.1, legs: 5, turnDrop: 0.22, gauge: 0.25, drop: 0.13 },
+    snake: { rows: [-0.2, 1.2, 2.6], x: [-10.6, -4.1], turnR: 0.7, spacing: 0.3 },
+    wave: { rows: 5, cols: 10, x0: -3.55, dx: 0.33, dz: 0.5 },
+    domino: { w: 0.36, h: 0.72, t: 0.1, chainTilt: 1.18, lastTilt: 1.46 },
+    big: { x: -0.35, h: 1.5, w: 0.6, t: 0.2 },
+    seesaw: { pivot: [2.8, 0.62, 2.6], half: 2.1, tilt: 0.26 },
+    helix: { c: [6.8, 0.2], R: 1.4, top: 7.4, bottom: 3.9, a0: 2.24, turns: 2.3 },
+    funnel: { c: [10.4, -2.6], rimR: 1.5, rimY: 3.2, holeR: 0.26, holeY: 2.35, entryR: 1.25, turns: 3.4 },
+    xylo: { x0: 10.4, dx: 0.58, y0: 1.72, dy: 0.13, bars: 8, z: -2.6, len: [1.5, 0.95], w: 0.42, hop: 0.34 },
+    bucket: { x: 15.1, z: -2.6, top: 1.2, drop: 0.95, r: 0.32 },
+    gears: { z: -3.4, board: -3.62, spoolR: 0.2, drumR: 0.5, module: 0.1,
+      list: [{ c: [14.9, 4.0], n: 18 }, { c: [16.13, 3.14], n: 12 }, { c: [17.6, 3.99], n: 22 }, { c: [18.83, 2.96], n: 10 }] },
+    mast: { x: 20.0, z: -2.9, h: 6.8, flagLow: 0.8 },
+    catapult: { pivot: [17.2, 0.58, 0.9], arm: 1.3, cocked: -0.14, releaseAt: 0.9, stop: 1.8 },
+    bell: { pivot: [5.9, 4.1, -4.9], h: 0.95, r: 0.5, dish: [6.9, -3.7] },
+    banner: { poles: [-4.6, 3.6], z: -5.5, roller: 0.95, top: 5.4, fan: [-0.5, -4.5] },
+  },
+  // Camera keys. p is the anchor for wide shots, follow blends toward the action point.
+  // az/el in degrees (az 0 looks from +z), d distance, fov vertical degrees on a landscape screen.
+  shots: [
+    { t: 0.00, p: [1.5, 1.2, 0.5], follow: 0, az: -22, el: 24, d: 44, fov: 30 },
+    { t: 0.14, p: [1.5, 1.5, 0.5], follow: 0, az: 8, el: 30, d: 38, fov: 30 },
+    { t: 0.27, follow: 1, az: -38, el: 20, d: 6.8, fov: 36 },
+    { t: 0.36, follow: 1, az: -52, el: 22, d: 5.6, fov: 38 },
+    { t: 0.52, follow: 1, az: -78, el: 30, d: 6.6, fov: 38 },
+    { t: 0.7, follow: 1, az: -30, el: 36, d: 7.6, fov: 38 },
+    { t: 0.88, follow: 1, az: 12, el: 22, d: 6.2, fov: 38 },
+    { t: 1.04, follow: 1, az: -18, el: 26, d: 5.2, fov: 38 },
+    { t: 1.2, follow: 1, az: -58, el: 34, d: 6.4, fov: 38 },
+    { t: 1.36, p: [-6.5, 0.2, 1.3], follow: 0.35, az: -24, el: 62, d: 17, fov: 36 },
+    { t: 1.52, follow: 1, az: 14, el: 38, d: 7.4, fov: 38 },
+    { t: 1.7, follow: 1, az: -38, el: 30, d: 7.2, fov: 38 },
+    { t: 1.88, follow: 1, az: -8, el: 15, d: 6.6, fov: 38 },
+    { t: 2.03, follow: 1, az: 18, el: 12, d: 7.4, fov: 38 },
+    { t: 2.13, p: [4.8, 2.6, 1.4], follow: 0.6, az: 30, el: 16, d: 12.5, fov: 40 },
+    { t: 2.24, follow: 1, az: 16, el: 30, d: 6.2, fov: 38 },
+    { t: 2.46, follow: 1, az: -24, el: 20, d: 5.8, fov: 38 },
+    { t: 2.66, follow: 1, az: -70, el: 12, d: 6.2, fov: 38 },
+    { t: 2.84, p: [3, 2.2, 0], follow: 0.3, az: -10, el: 26, d: 26, fov: 34 },
+    { t: 2.98, follow: 1, az: 28, el: 30, d: 6.4, fov: 38 },
+    { t: 3.12, follow: 1, az: 12, el: 58, d: 5.6, fov: 38 },
+    { t: 3.34, follow: 1, az: -28, el: 46, d: 4.8, fov: 38 },
+    { t: 3.5, follow: 1, az: 0, el: 20, d: 5.4, fov: 38 },
+    { t: 3.7, follow: 1, az: 26, el: 24, d: 5.8, fov: 38 },
+    { t: 3.92, follow: 1, az: 44, el: 20, d: 6.2, fov: 38 },
+    { t: 4.06, follow: 1, az: 4, el: 10, d: 10.5, fov: 36 },
+    { t: 4.28, follow: 1, az: -18, el: 16, d: 9.5, fov: 36 },
+    { t: 4.46, follow: 1, az: 28, el: 18, d: 8.4, fov: 36 },
+    { t: 4.54, p: [4, 2.4, 0.5], follow: 0.2, az: 18, el: 28, d: 34, fov: 32 },
+    { t: 4.6, follow: 1, az: -42, el: 14, d: 6.2, fov: 38 },
+    { t: 4.74, p: [11.5, 2.4, -1.5], follow: 0.55, az: 48, el: 20, d: 15, fov: 40 },
+    { t: 4.93, follow: 1, az: -36, el: 14, d: 6.8, fov: 38 },
+    { t: 5.06, follow: 1, az: 0, el: 20, d: 9.5, fov: 38 },
+    { t: 5.32, follow: 1, az: -8, el: 10, d: 13.5, fov: 38 },
+    { t: 5.62, p: [2.4, 2.4, 1.5], follow: 0.35, az: 2, el: 16, d: 25, fov: 34 },
+    { t: 6.0, p: [2.4, 2.2, 0.5], follow: 0.2, az: 12, el: 22, d: 40, fov: 32 },
+  ],
+  // reduced motion: one still of the finished machine from this pose
+  still: { p: [2.2, 2.0, 0.8], az: 10, el: 26, d: 40, fov: 32 },
+};
+
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const coarse = matchMedia('(pointer: coarse)').matches;
+const isMobile = () => innerWidth < CONFIG.mobileBreak;
+const PI = Math.PI, TAU = Math.PI * 2, DEG = Math.PI / 180;
+const UP = new THREE.Vector3(0, 1, 0);
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const clamp01 = (v) => clamp(v, 0, 1);
+const seg = (p, a, b) => clamp01((p - a) / (b - a));
+const smooth = (x) => x * x * (3 - 2 * x);
+const win = (p, a, b) => smooth(seg(p, a, b));
+const lerp = (a, b, t) => a + (b - a) * t;
+const backOut = (x, s = 1.7) => { const k = x - 1; return 1 + (s + 1) * k * k * k + s * k * k; };
+const V = (x, y, z) => new THREE.Vector3(x, y, z);
+const $ = (s) => document.querySelector(s);
+const $$ = (s) => [...document.querySelectorAll(s)];
+const dprNow = () => Math.min(devicePixelRatio || 1, CONFIG.dprMax);
+/** Deterministic PRNG so layouts are the same on every load. */
+function mulberry32(seed) { let a = seed; return () => { a |= 0; a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+
+/* ───────── scroll: one continuous timeline t = segment index + progress inside that segment ───────── */
+if (reduce) document.documentElement.classList.add('reduce');
+const lenis = reduce ? null : new Lenis({ lerp: CONFIG.lenisLerp });
+
+const timeline = (() => {
+  const sections = $$('.scene');
+  let tops = [], ends = [];
+  const measure = () => {
+    const max = document.documentElement.scrollHeight - innerHeight;
+    tops = sections.map((s) => s.offsetTop);
+    ends = tops.slice(1).concat([max]);
+  };
+  const at = (y) => {
+    if (reduce) return sections.length; // the finished machine
+    for (let i = sections.length - 1; i >= 0; i--) {
+      if (y >= tops[i]) return i + clamp01((y - tops[i]) / Math.max(1, ends[i] - tops[i]));
+    }
+    return 0;
+  };
+  addEventListener('resize', measure);
+  measure();
+  return { now: () => at(scrollY), count: sections.length, measure };
+})();
+
+/* ───────── overlay: title, segment words, scroll cue, finale button ───────── */
+function createOverlay() {
+  const title = $('#title'), cue = $('#cue'), fin = $('#fin-copy'), magnet = $('#magnet');
+  const words = $$('[data-word]').map((el) => {
+    const [a, b] = el.dataset.word.split(',').map(Number);
+    if (!Number.isFinite(a) || !Number.isFinite(b)) throw new Error(`bad data-word on ${el.textContent}`);
+    const segIndex = $$('.scene').indexOf(el.closest('.scene'));
+    return { el, a: segIndex + a, b: segIndex + b };
+  });
+  // magnetic pull on the finale button (pointer devices only)
+  const mag = { x: 0, y: 0, tx: 0, ty: 0 };
+  if (!coarse && !reduce) {
+    addEventListener('pointermove', (e) => {
+      const r = magnet.getBoundingClientRect();
+      const dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2);
+      const near = Math.hypot(dx, dy) < r.width * 1.3;
+      mag.tx = near ? dx * 0.32 : 0; mag.ty = near ? dy * 0.32 : 0;
+    });
+  }
+  return (t) => {
+    if (reduce) return;
+    const out = win(t, 0.05, 0.15);
+    title.style.opacity = String(1 - out);
+    title.style.transform = `translate3d(0, ${-out * 8}vh, 0)`;
+    cue.style.opacity = String(1 - win(t, 0.01, 0.05));
+    for (const w of words) {
+      const span = w.b - w.a, fade = Math.min(0.08, span * 0.3);
+      const o = win(t, w.a, w.a + fade) * (1 - win(t, w.b - fade, w.b));
+      w.el.style.opacity = String(o);
+      w.el.style.transform = `translate3d(0, ${(1 - o) * 3}vh, 0)`;
+    }
+    const f = win(t, CONFIG.time.finIn[0], CONFIG.time.finIn[1]);
+    fin.style.opacity = String(f);
+    fin.style.transform = `translate3d(0, ${(1 - f) * 4}vh, 0)`;
+    fin.classList.toggle('on', f > 0.5);
+    mag.x += (mag.tx - mag.x) * 0.15; mag.y += (mag.ty - mag.y) * 0.15;
+    magnet.style.transform = `translate3d(${mag.x}px, ${mag.y}px, 0)`;
+    magnet.firstElementChild.style.transform = `translate3d(${mag.x * 0.35}px, ${mag.y * 0.35}px, 0)`;
+  };
+}
+
+/* ---- src/10-stage.js ---- */
+/* ───────── stage: renderer, studio sweep, lights, bloom, material kit ───────── */
+function makeWoodTexture() {
+  const n = CONFIG.table.grainPx, cv = document.createElement('canvas');
+  cv.width = cv.height = n;
+  const g = cv.getContext('2d'), rnd = mulberry32(7);
+  g.fillStyle = COLOR.woodA; g.fillRect(0, 0, n, n);
+  // long grain lines that wobble, drawn twice for seamless wrap across the top edge
+  for (let i = 0; i < 260; i++) {
+    const y0 = rnd() * n, amp = 2 + rnd() * 10, freq = (1 + Math.floor(rnd() * 3)) * TAU / n, ph = rnd() * TAU;
+    g.strokeStyle = rnd() < 0.7 ? COLOR.woodB : '#d4622e';
+    g.globalAlpha = 0.08 + rnd() * 0.22; g.lineWidth = 0.6 + rnd() * 2.6;
+    for (const off of [0, n, -n]) {
+      g.beginPath();
+      for (let x = 0; x <= n; x += 8) { const y = y0 + off + Math.sin(x * freq + ph) * amp; x ? g.lineTo(x, y) : g.moveTo(x, y); }
+      g.stroke();
+    }
+  }
+  g.globalAlpha = 1;
+  const tex = new THREE.CanvasTexture(cv);
+  tex.colorSpace = THREE.SRGBColorSpace; tex.wrapS = tex.wrapT = THREE.RepeatWrapping; tex.anisotropy = 8;
+  return tex;
+}
+
+function createMaterials() {
+  const lacquer = (color) => new THREE.MeshPhysicalMaterial({ color, roughness: 0.32, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.06, envMapIntensity: CONFIG.light.env });
+  const acrylic = (color, transmission = 0.55) => new THREE.MeshPhysicalMaterial({ color, roughness: 0.08, metalness: 0, transmission, thickness: 0.25, ior: 1.49,
+    clearcoat: 1, clearcoatRoughness: 0.04, envMapIntensity: CONFIG.light.env, side: THREE.DoubleSide });
+  const wood = makeWoodTexture();
+  return {
+    lacquer, acrylic,
+    tomato: lacquer(COLOR.tomato), sun: lacquer(COLOR.sun), emerald: lacquer(COLOR.emerald), cobalt: lacquer(COLOR.cobalt), pink: lacquer(COLOR.pink), ink: lacquer(COLOR.ink),
+    wood: new THREE.MeshPhysicalMaterial({ map: wood, roughness: 0.5, clearcoat: 0.7, clearcoatRoughness: 0.28, envMapIntensity: 0.6 }),
+    woodTex: wood,
+    brass: new THREE.MeshStandardMaterial({ color: COLOR.brass, metalness: 1, roughness: 0.22, envMapIntensity: 2.1 }),
+    chrome: new THREE.MeshStandardMaterial({ color: COLOR.chrome, metalness: 1, roughness: 0.16, envMapIntensity: 1.25 }),
+    rope: new THREE.MeshStandardMaterial({ color: COLOR.rope, roughness: 0.9 }),
+  };
+}
+
+function createStage(canvas) {
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
+  renderer.setPixelRatio(dprNow());
+  renderer.setSize(innerWidth, innerHeight, false);
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = CONFIG.light.exposure;
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(CONFIG.camera.fov, innerWidth / innerHeight, CONFIG.camera.near, CONFIG.camera.far);
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+  pmrem.dispose();
+
+  // studio sweep: a gradient dome that ignores lights, fog matches its horizon so the floor melts into it
+  const horizon = new THREE.Color(COLOR.studioHorizon);
+  scene.fog = new THREE.Fog(horizon, 60, 190);
+  const dome = new THREE.Mesh(new THREE.SphereGeometry(240, 32, 16), new THREE.ShaderMaterial({
+    side: THREE.BackSide, depthWrite: false, fog: false,
+    uniforms: { top: { value: new THREE.Color(COLOR.studioTop) }, bottom: { value: horizon } },
+    vertexShader: 'varying vec3 vP; void main(){ vP = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.); }',
+    fragmentShader: 'uniform vec3 top; uniform vec3 bottom; varying vec3 vP; void main(){ float h = smoothstep(-0.05, 0.55, vP.y); gl_FragColor = vec4(mix(bottom, top, h), 1.);\n#include <colorspace_fragment>\n}',
+  }));
+  scene.add(dome);
+  const floor = new THREE.Mesh(new THREE.CircleGeometry(230, 64), new THREE.MeshStandardMaterial({ color: COLOR.floor, roughness: 0.92 }));
+  floor.rotation.x = -PI / 2; floor.position.y = -CONFIG.table.thick - 2.4; floor.receiveShadow = true;
+  scene.add(floor);
+
+  const L = CONFIG.light;
+  scene.add(new THREE.HemisphereLight('#bfe8ff', COLOR.floor, L.hemi));
+  const key = new THREE.DirectionalLight('#fff4e6', L.key);
+  const keyDir = V(...L.keyDir).normalize();
+  key.castShadow = true;
+  key.shadow.mapSize.setScalar(isMobile() ? L.shadowMapMobile : L.shadowMap);
+  key.shadow.bias = -0.0004; key.shadow.normalBias = 0.02; key.shadow.radius = 4;
+  const sc = key.shadow.camera; sc.near = 1; sc.far = 120;
+  scene.add(key, key.target);
+  let lastSpan = 0;
+  /** The shadow box follows the camera target and shrinks for close shots, so close-ups keep crisp shadows. */
+  const aimShadow = (target, dist) => {
+    const span = clamp(dist * L.shadowPerDist, L.shadowMin, L.shadowMax);
+    key.target.position.copy(target);
+    key.position.copy(target).addScaledVector(keyDir, 50);
+    if (Math.abs(span - lastSpan) > 0.01) {
+      sc.left = -span; sc.right = span; sc.top = span; sc.bottom = -span; sc.updateProjectionMatrix(); lastSpan = span;
+    }
+  };
+
+  const size = new THREE.Vector2(innerWidth, innerHeight);
+  const rt = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: 4 });
+  const composer = new EffectComposer(renderer, rt);
+  composer.addPass(new RenderPass(scene, camera));
+  const B = CONFIG.bloom;
+  const bloom = new UnrealBloomPass(size, B.strength, B.radius, B.threshold);
+  composer.addPass(bloom);
+  composer.addPass(new OutputPass());
+
+  const resize = () => {
+    renderer.setPixelRatio(dprNow());
+    renderer.setSize(innerWidth, innerHeight, false);
+    composer.setPixelRatio(dprNow());
+    composer.setSize(innerWidth, innerHeight);
+    camera.aspect = innerWidth / innerHeight;
+  };
+  addEventListener('resize', resize);
+  resize();
+  return { renderer, scene, camera, composer, aimShadow, render: () => composer.render() };
+}
+
+/** Adds a mesh that casts and receives shadows. */
+function solid(geo, mat, parent, x = 0, y = 0, z = 0) {
+  const m = new THREE.Mesh(geo, mat);
+  m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true;
+  parent.add(m);
+  return m;
+}
+
+/** A cylinder between two points (posts, rods, ropes). */
+function rod(a, b, r, mat, parent, seg = 10) {
+  const len = a.distanceTo(b);
+  const m = solid(new THREE.CylinderGeometry(r, r, len, seg), mat, parent);
+  placeRod(m, a, b);
+  return m;
+}
+const _rodDir = new THREE.Vector3();
+function placeRod(m, a, b) {
+  const len = a.distanceTo(b);
+  _rodDir.subVectors(b, a).normalize();
+  m.position.copy(a).add(b).multiplyScalar(0.5);
+  m.quaternion.setFromUnitVectors(UP, _rodDir);
+  m.scale.set(1, len / m.geometry.parameters.height, 1);
+}
+
+/* ---- src/20-track.js ---- */
+/* ───────── rails and actors ───────── */
+
+/** Curve through marble-center points, arc length mapped finely so getPointAt is even. */
+function pathCurve(points, tension = 0.5) {
+  const c = new THREE.CatmullRomCurve3(points, false, 'centripetal', tension);
+  c.arcLengthDivisions = Math.max(400, Math.round(c.getLength() * 60));
+  c.updateArcLengths();
+  return c;
+}
+
+/** Two round rails under a marble path, cross ties, and optional posts down to a floor height. */
+function buildRails(curve, mats, { gauge = 0.25, drop = 0.13, tieEvery = 0.42, postEvery = 1.6, postTo = 0, postMat, railR = 0.035, skipPosts = () => false } = {}) {
+  const group = new THREE.Group();
+  const len = curve.getLength(), steps = Math.max(24, Math.round(len * 14));
+  const left = [], right = [], frames = [];
+  for (let i = 0; i <= steps; i++) {
+    const u = i / steps, p = curve.getPointAt(u), tan = curve.getTangentAt(u);
+    const side = new THREE.Vector3().crossVectors(tan, UP).normalize();
+    const nrm = new THREE.Vector3().crossVectors(side, tan).normalize();
+    const base = p.clone().addScaledVector(nrm, -drop);
+    left.push(base.clone().addScaledVector(side, gauge / 2));
+    right.push(base.clone().addScaledVector(side, -gauge / 2));
+    frames.push({ u, base, side, nrm });
+  }
+  for (const pts of [left, right]) {
+    const rc = new THREE.CatmullRomCurve3(pts);
+    solid(new THREE.TubeGeometry(rc, steps * 2, railR, 8, false), mats.chrome, group);
+  }
+  // ties: small brass bars across the gauge, slightly below the rails
+  const tieGeo = new THREE.BoxGeometry(gauge + 0.1, 0.03, 0.05);
+  const ties = Math.floor(len / tieEvery);
+  const tieMesh = new THREE.InstancedMesh(tieGeo, mats.brass, ties);
+  tieMesh.castShadow = tieMesh.receiveShadow = true;
+  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), basis = new THREE.Matrix4();
+  for (let i = 0; i < ties; i++) {
+    const f = frames[Math.round(((i + 0.5) / ties) * steps)];
+    const tan = new THREE.Vector3().crossVectors(f.nrm, f.side);
+    basis.makeBasis(f.side, f.nrm, tan); q.setFromRotationMatrix(basis);
+    m4.compose(f.base.clone().addScaledVector(f.nrm, -0.035), q, new THREE.Vector3(1, 1, 1));
+    tieMesh.setMatrixAt(i, m4);
+  }
+  group.add(tieMesh);
+  if (postEvery > 0) {
+    const posts = Math.max(2, Math.floor(len / postEvery));
+    for (let i = 0; i <= posts; i++) {
+      const f = frames[Math.round((i / posts) * steps)];
+      if (skipPosts(f.base)) continue;
+      const top = f.base.clone().addScaledVector(f.nrm, -0.05);
+      if (top.y - postTo < 0.15) continue;
+      rod(top, V(top.x, postTo, top.z), 0.045, postMat ?? mats.sun, group, 8);
+      solid(new THREE.CylinderGeometry(0.11, 0.13, 0.06, 14), mats.brass, group, top.x, postTo + 0.03, top.z);
+    }
+  }
+  return group;
+}
+
+/** A glass marble with a coloured twisted vane inside, so the rolling rotation reads clearly. */
+function makeMarble(mats, { glass, vane, r = CONFIG.marble.r }) {
+  const g = new THREE.Group();
+  const shell = new THREE.Mesh(new THREE.SphereGeometry(r, 48, 32), new THREE.MeshPhysicalMaterial({
+    color: glass, transmission: 0.82, thickness: r * 1.6, roughness: 0.02, ior: 1.52, clearcoat: 1, clearcoatRoughness: 0.01,
+    attenuationColor: glass, attenuationDistance: r * 1.4, envMapIntensity: 1.8, specularIntensity: 1,
+  }));
+  shell.castShadow = true;
+  g.add(shell);
+  const vaneMat = new THREE.MeshStandardMaterial({ color: vane, roughness: 0.35, emissive: vane, emissiveIntensity: 0.55, side: THREE.DoubleSide });
+  for (let k = 0; k < 3; k++) {
+    const geo = new THREE.PlaneGeometry(r * 1.5, r * 1.55, 1, 12);
+    const pos = geo.attributes.position;
+    for (let i = 0; i < pos.count; i++) { // twist the petal along its length
+      const x = pos.getX(i), y = pos.getY(i), a = (y / r) * 1.1;
+      pos.setXYZ(i, x * Math.cos(a) * (1 - Math.abs(y) / (r * 1.1)) , y, x * Math.sin(a) * (1 - Math.abs(y) / (r * 1.1)));
+    }
+    geo.computeVertexNormals();
+    const petal = new THREE.Mesh(geo, vaneMat);
+    petal.rotation.y = (k / 3) * PI;
+    g.add(petal);
+  }
+  return g;
+}
+
+/**
+ * An actor is anything that travels: a marble or the steel ball. Its path is a list of legs,
+ * each { t0, t1, at(t) → Vector3, mode: 'roll' | 'fly' | 'carry' }. Positions are pure functions of t.
+ * Rotation is integrated once at load (roll: angle = distance / radius about up × velocity; fly keeps the
+ * last spin; carry keeps orientation), then looked up, so rewinding lands on the very same pose.
+ */
+function createActor(object, radius, legs) {
+  const L = [...legs].sort((a, b) => a.t0 - b.t0);
+  const t0 = L[0].t0, t1 = L[L.length - 1].t1, dt = CONFIG.sampleDt;
+  const n = Math.ceil((t1 - t0) / dt) + 1;
+  const pos = new Float32Array(n * 3), quat = new Float32Array(n * 4);
+  const legAt = (t) => {
+    for (let i = L.length - 1; i >= 0; i--) if (t >= L[i].t0) return t <= L[i].t1 ? { leg: L[i], t } : { leg: L[i], t: L[i].t1, hold: true };
+    return { leg: L[0], t: L[0].t0, hold: true };
+  };
+  const q = new THREE.Quaternion(), dq = new THREE.Quaternion(), axis = new THREE.Vector3(1, 0, 0), d = new THREE.Vector3();
+  let prev = L[0].at(t0).clone(), spin = 0;
+  for (let i = 0; i < n; i++) {
+    const t = Math.min(t1, t0 + i * dt), { leg, t: lt, hold } = legAt(t);
+    const p = leg.at(lt);
+    d.subVectors(p, prev);
+    const dist = d.length();
+    if (!hold && leg.mode === 'roll' && dist > 1e-7) {
+      axis.crossVectors(UP, d).normalize();
+      if (axis.lengthSq() > 0.5) { const ang = dist / radius; dq.setFromAxisAngle(axis, ang); q.premultiply(dq); spin = ang / dt; }
+    } else if (!hold && leg.mode === 'fly' && spin) {
+      dq.setFromAxisAngle(axis, spin * dt * 0.85); q.premultiply(dq);
+    } else if (hold || leg.mode === 'carry') spin *= 0.9;
+    pos.set([p.x, p.y, p.z], i * 3); quat.set([q.x, q.y, q.z, q.w], i * 4);
+    prev.copy(p);
+  }
+  const qa = new THREE.Quaternion(), qb = new THREE.Quaternion(), out = new THREE.Vector3();
+  const update = (t) => {
+    const f = clamp((t - t0) / dt, 0, n - 1), i = Math.floor(f), j = Math.min(n - 1, i + 1), k = f - i;
+    out.set(lerp(pos[i * 3], pos[j * 3], k), lerp(pos[i * 3 + 1], pos[j * 3 + 1], k), lerp(pos[i * 3 + 2], pos[j * 3 + 2], k));
+    qa.fromArray(quat, i * 4); qb.fromArray(quat, j * 4);
+    object.position.copy(out);
+    object.quaternion.slerpQuaternions(qa, qb, k);
+    return out;
+  };
+  /** Position at any t without touching the mesh (camera focus). */
+  const peek = (t) => {
+    const f = clamp((t - t0) / dt, 0, n - 1), i = Math.floor(f), j = Math.min(n - 1, i + 1), k = f - i;
+    return V(lerp(pos[i * 3], pos[j * 3], k), lerp(pos[i * 3 + 1], pos[j * 3 + 1], k), lerp(pos[i * 3 + 2], pos[j * 3 + 2], k));
+  };
+  return { object, update, peek, t0, t1 };
+}
+
+/** Leg helpers */
+const along = (curve, t0, t1, ease = (x) => x) => ({ t0, t1, mode: 'roll', at: (t) => curve.getPointAt(clamp01(ease(seg(t, t0, t1)))) });
+const lineLeg = (a, b, t0, t1, ease = (x) => x) => ({ t0, t1, mode: 'roll', at: (t) => a.clone().lerp(b, ease(seg(t, t0, t1))) });
+/** Ballistic hop from a to b with a peak `h` above the higher end. Horizontal speed is constant. */
+const hopLeg = (a, b, h, t0, t1, mode = 'fly') => ({ t0, t1, mode, at: (t) => {
+  const u = seg(t, t0, t1), top = Math.max(a.y, b.y) + h;
+  // parabola through a (u=0), b (u=1) and apex height top: y = a + (b-a)u + c u(1-u)
+  const c = 2 * (top - (a.y + b.y) / 2) + 2 * Math.sqrt(Math.max(0, (top - a.y) * (top - b.y)));
+  return V(lerp(a.x, b.x, u), lerp(a.y, b.y, u) + c * u * (1 - u), lerp(a.z, b.z, u));
+} });
+/** Rolling starts slowly and gathers speed. */
+const gather = (k) => (x) => k * x * x + (1 - k) * x;
+
+/* ---- src/30-start.js ---- */
+/* ───────── table, start tower, zigzag ramp, marble A ───────── */
+function createTable(scene, mats) {
+  const T = CONFIG.table, w = T.x[1] - T.x[0], d = T.z[1] - T.z[0];
+  const g = new THREE.Group(); scene.add(g);
+  mats.woodTex.repeat.set(w / 9, d / 9);
+  const top = solid(new RoundedBoxGeometry(w, T.thick, d, 4, 0.18), mats.wood, g, (T.x[0] + T.x[1]) / 2, T.top - T.thick / 2, (T.z[0] + T.z[1]) / 2);
+  top.castShadow = false;
+  // lacquered legs down to the studio floor
+  const legH = 2.4, legGeo = new THREE.CylinderGeometry(0.45, 0.32, legH, 24);
+  for (const x of [T.x[0] + 1.6, T.x[1] - 1.6]) for (const z of [T.z[0] + 1.4, T.z[1] - 1.4]) {
+    solid(legGeo, mats.tomato, g, x, -T.thick - legH / 2, z);
+  }
+  // a brass edge band makes the slab read as a crafted board
+  const band = solid(new THREE.BoxGeometry(w + 0.02, 0.08, d + 0.02), mats.brass, g, (T.x[0] + T.x[1]) / 2, -T.thick + 0.06, (T.z[0] + T.z[1]) / 2);
+  band.castShadow = false;
+  return g;
+}
+
+function zigPoints() {
+  const Z = CONFIG.layout.zig, r = CONFIG.marble.r;
+  const legDrop = (Z.y0 - r - (Z.legs - 1) * Z.turnDrop) / Z.legs;
+  const pts = [];
+  let y = Z.y0, z = Z.z0;
+  pts.push(V(Z.xa - 0.9, y + 0.05, z));
+  for (let k = 0; k < Z.legs; k++) {
+    const dir = k % 2 === 0 ? 1 : -1;
+    const xs = dir > 0 ? Z.xa : Z.xb, xe = dir > 0 ? Z.xb : Z.xa;
+    const last = k === Z.legs - 1;
+    const steps = 5;
+    for (let i = 0; i <= steps; i++) {
+      const u = i / steps;
+      // the last leg flattens onto the table so the marble lands softly
+      const yy = last ? y - legDrop * (1 - (1 - u) * (1 - u)) : y - legDrop * u;
+      if (i || k === 0) pts.push(V(lerp(xs, xe, u), yy, z));
+    }
+    y -= legDrop;
+    if (last) break;
+    const R = Z.zStep / 2, cx = xe, cz = z + R;
+    for (let i = 1; i < 8; i++) {
+      const a = -PI / 2 + (i / 8) * PI;
+      pts.push(V(cx + dir * (Math.cos(a) * R + 0.35), y - Z.turnDrop * (i / 8), cz + Math.sin(a) * R));
+    }
+    y -= Z.turnDrop; z += Z.zStep;
+  }
+  return pts;
+}
+
+function createStart(scene, mats) {
+  const Z = CONFIG.layout.zig, T = CONFIG.time, r = CONFIG.marble.r;
+  const g = new THREE.Group(); scene.add(g);
+  const pts = zigPoints();
+  const ramp = pathCurve(pts);
+  const rampEnd = pts[pts.length - 1];
+  g.add(buildRails(ramp, mats, { gauge: Z.gauge, drop: Z.drop, postMat: mats.sun, postEvery: 1.3 }));
+
+  // start tower: lacquered posts under a small platform, with a brass gate arm
+  const [tx, tz] = CONFIG.layout.tower, platY = Z.y0 - r - 0.16;
+  solid(new RoundedBoxGeometry(1.5, 0.2, 1.2, 3, 0.06), mats.cobalt, g, tx, platY, tz);
+  for (const dx of [-0.6, 0.6]) for (const dz of [-0.45, 0.45]) rod(V(tx + dx, platY, tz + dz), V(tx + dx, 0, tz + dz), 0.07, mats.tomato, g, 12);
+  for (const y of [1.6, 3.4]) solid(new THREE.BoxGeometry(1.3, 0.07, 0.07), mats.brass, g, tx, y, tz - 0.45);
+  // gate: a boom across the track hinged at the side, it lifts like a barrier
+  const gatePivot = new THREE.Group(); gatePivot.position.set(pts[1].x - 0.05, Z.y0 + 0.02, tz + 0.42); g.add(gatePivot);
+  rod(V(pts[1].x - 0.05, platY, tz + 0.42), V(pts[1].x - 0.05, Z.y0 + 0.02, tz + 0.42), 0.05, mats.brass, g, 12);
+  solid(new THREE.SphereGeometry(0.08, 16, 12), mats.brass, gatePivot);
+  solid(new RoundedBoxGeometry(0.09, 0.09, 0.8, 2, 0.035), mats.tomato, gatePivot, 0, 0, -0.4);
+
+  const marble = makeMarble(mats, { glass: '#2f64ff', vane: COLOR.sun });
+  scene.add(marble);
+  // the first domino stands just beyond the landing; A stops against it
+  const firstDomino = V(CONFIG.layout.snake.x[0], r, CONFIG.layout.snake.rows[0]);
+  const stopAt = firstDomino.clone().setX(firstDomino.x - CONFIG.layout.domino.t / 2 - r - 0.01);
+  const A = createActor(marble, r, [
+    along(ramp, T.rampA[0], T.rampA[1], gather(0.45)),
+    lineLeg(rampEnd.clone().setY(r), stopAt, T.rollA[0], T.rollA[1], (x) => 1 - (1 - x) * (1 - x)),
+  ]);
+  const update = (t) => {
+    gatePivot.rotation.x = 1.35 * win(t, T.gate[0], T.gate[1]);
+    return A.update(t);
+  };
+  return { update, A };
+}
+
+/* ---- src/40-dominoes.js ---- */
+/* ───────── dominoes: a snake of acrylic tiles, then a five-row wave, then one tall domino ───────── */
+function snakeCurve() {
+  const S = CONFIG.layout.snake, [xa, xb] = S.x, pts = [];
+  S.rows.forEach((z, k) => {
+    const dir = k % 2 === 0 ? 1 : -1, xs = dir > 0 ? xa : xb, xe = dir > 0 ? xb : xa;
+    for (let i = 0; i <= 6; i++) pts.push(V(lerp(xs, xe, i / 6), 0, z));
+    if (k === S.rows.length - 1) return;
+    const zn = S.rows[k + 1], R = (zn - z) / 2;
+    for (let i = 1; i < 10; i++) {
+      const a = -PI / 2 + (i / 10) * PI;
+      pts.push(V(xe + dir * Math.cos(a) * R * 1.1, 0, z + R + Math.sin(a) * R));
+    }
+  });
+  return pathCurve(pts, 0.5);
+}
+
+const DOMINO_HUES = [COLOR.tomato, COLOR.orange, COLOR.sun, COLOR.emerald, COLOR.aqua, COLOR.cobalt, COLOR.violet, COLOR.pink];
+function paletteAt(u) {
+  const f = clamp01(u) * (DOMINO_HUES.length - 1), i = Math.floor(f), j = Math.min(DOMINO_HUES.length - 1, i + 1);
+  return new THREE.Color(DOMINO_HUES[i]).lerp(new THREE.Color(DOMINO_HUES[j]), f - i);
+}
+
+function createDominoes(scene, mats) {
+  const D = CONFIG.layout.domino, W = CONFIG.layout.wave, T = CONFIG.time;
+  const curve = snakeCurve(), len = curve.getLength();
+  const tiles = [];
+  // snake
+  const nSnake = Math.floor(len / CONFIG.layout.snake.spacing) + 1;
+  const snakeSpan = T.snake[1] - T.snake[0], snakeStep = snakeSpan / nSnake;
+  for (let i = 0; i < nSnake; i++) {
+    const u = (i * CONFIG.layout.snake.spacing) / len;
+    const p = curve.getPointAt(Math.min(1, u)), d = curve.getTangentAt(Math.min(1, u)).setY(0).normalize();
+    tiles.push({ p, d, fs: T.snake[0] + i * snakeStep, fd: snakeStep * 4.5, tilt: D.chainTilt, hue: (i / nSnake) * 0.62 });
+  }
+  // wave: the middle row continues the snake, outer rows lag by row distance so the front is a V
+  const zMid = CONFIG.layout.snake.rows[CONFIG.layout.snake.rows.length - 1];
+  const lag = 0.9, units = W.cols - 1 + lag * Math.floor(W.rows / 2), waveSpan = T.wave[1] - T.wave[0];
+  for (let c = 0; c < W.cols; c++) for (let r = 0; r < W.rows; r++) {
+    const off = Math.abs(r - (W.rows - 1) / 2);
+    const fs = T.wave[0] + ((c + off * lag) / (units + 3)) * waveSpan;
+    tiles.push({ p: V(W.x0 + c * W.dx, 0, zMid + (r - (W.rows - 1) / 2) * W.dz), d: V(1, 0, 0), fs, fd: (waveSpan / (units + 3)) * 3.2,
+      tilt: c === W.cols - 1 ? D.lastTilt : D.chainTilt, hue: 0.64 + (c / W.cols) * 0.36 });
+  }
+
+  const geo = new RoundedBoxGeometry(D.w, D.h, D.t, 2, 0.025);
+  geo.translate(0, D.h / 2, 0);
+  const mat = mats.acrylic('#ffffff', 0.35);
+  const mesh = new THREE.InstancedMesh(geo, mat, tiles.length);
+  mesh.castShadow = mesh.receiveShadow = true;
+  tiles.forEach((tile, i) => mesh.setColorAt(i, paletteAt(tile.hue)));
+  scene.add(mesh);
+
+  // tall brass-capped domino that tips the seesaw
+  const B = CONFIG.layout.big;
+  const bigPivot = new THREE.Group(); bigPivot.position.set(B.x + B.t / 2, 0, zMid); scene.add(bigPivot);
+  solid(new RoundedBoxGeometry(B.t, B.h, B.w, 3, 0.04), mats.lacquer(COLOR.pink), bigPivot, -B.t / 2, B.h / 2, 0);
+  solid(new THREE.BoxGeometry(B.t + 0.02, 0.14, B.w + 0.02), mats.brass, bigPivot, -B.t / 2, B.h - 0.07, 0);
+
+  const m4 = new THREE.Matrix4(), yaw = new THREE.Quaternion(), fall = new THREE.Quaternion(), qq = new THREE.Quaternion();
+  const axis = new THREE.Vector3(), pivot = new THREE.Vector3(), rel = new THREE.Vector3(), one = new THREE.Vector3(1, 1, 1), Z = new THREE.Vector3(0, 0, 1);
+  const tiltOf = (tile, t) => { const u = seg(t, tile.fs, tile.fs + tile.fd); return tile.tilt * u * u; };
+  let lastT = -1;
+  const update = (t) => {
+    const bu = seg(t, T.big[0], T.seesaw[0]);
+    bigPivot.rotation.z = -(0.82 * bu * bu + 0.6 * win(t, T.seesaw[0], T.seesaw[1] + 0.01));
+    if (t === lastT) return;
+    lastT = t;
+    tiles.forEach((tile, i) => {
+      yaw.setFromUnitVectors(Z, tile.d);
+      axis.crossVectors(UP, tile.d).normalize();
+      fall.setFromAxisAngle(axis, tiltOf(tile, t));
+      pivot.copy(tile.p).addScaledVector(tile.d, D.t / 2);
+      // rotate the base point about the front edge, then orient the tile
+      rel.subVectors(tile.p, pivot).applyQuaternion(fall).add(pivot);
+      qq.multiplyQuaternions(fall, yaw);
+      m4.compose(rel, qq, one);
+      mesh.setMatrixAt(i, m4);
+    });
+    mesh.instanceMatrix.needsUpdate = true;
+  };
+  /** The action point: the tile that is falling right now. */
+  const focus = (t) => {
+    if (t < T.wave[0]) {
+      const i = clamp((t - T.snake[0]) / snakeStep, 0, nSnake - 1);
+      return curve.getPointAt(Math.min(1, (i * CONFIG.layout.snake.spacing) / len)).setY(0.35);
+    }
+    const c = clamp(((t - T.wave[0]) / waveSpan) * (units + 3), 0, W.cols - 1);
+    const p = V(W.x0 + c * W.dx, 0.35, zMid);
+    // slide on to the tall domino as the wave finishes
+    return p.lerp(V(B.x + 0.4, 0.8, zMid), win(t, T.wave[1] - 0.02, T.big[1]));
+  };
+  return { update, focus, tiles };
+}
+
+/* ---- src/50-seesaw-helix.js ---- */
+/* ───────── seesaw launch, helix rail around a chrome column, chute to the funnel ───────── */
+function seesawAngle(t) {
+  const S = CONFIG.layout.seesaw, T = CONFIG.time, u = seg(t, T.seesaw[0], T.seesaw[1]);
+  const settle = t > T.seesaw[1] ? 0.05 * Math.exp(-(t - T.seesaw[1]) / 0.012) * Math.sin((t - T.seesaw[1]) / 0.004) : 0;
+  return -S.tilt + 2 * S.tilt * u * u - settle;
+}
+
+function helixChuteCurve() {
+  const H = CONFIG.layout.helix, F = CONFIG.layout.funnel, pts = [];
+  const steps = 96;
+  for (let i = 0; i <= steps; i++) {
+    const u = i / steps, a = H.a0 + H.turns * TAU * u;
+    pts.push(V(H.c[0] + H.R * Math.cos(a), lerp(H.top, H.bottom, u), H.c[1] + H.R * Math.sin(a)));
+  }
+  const end = pts[pts.length - 1], aEnd = H.a0 + H.turns * TAU;
+  const tanEnd = V(-Math.sin(aEnd), 0, Math.cos(aEnd));
+  const entry = funnelEntry(end);
+  const entryY = funnelSurfaceY(F.entryR) + CONFIG.marble.r * 1.2;
+  const dirIn = entry.tan;
+  pts.push(end.clone().addScaledVector(tanEnd, 0.9).setY(H.bottom - 0.06));
+  const mid = end.clone().addScaledVector(tanEnd, 0.9).lerp(entry.p.clone().addScaledVector(dirIn, -1.1), 0.5);
+  pts.push(mid.setY(lerp(H.bottom, entryY, 0.55)));
+  pts.push(entry.p.clone().addScaledVector(dirIn, -1.1).setY(entryY + 0.14));
+  pts.push(entry.p.clone().setY(entryY));
+  return { curve: pathCurve(pts), helixFrac: 0, entry };
+}
+
+function createSeesawHelix(scene, mats) {
+  const S = CONFIG.layout.seesaw, H = CONFIG.layout.helix, T = CONFIG.time, r = CONFIG.marble.r;
+  const g = new THREE.Group(); scene.add(g);
+
+  // seesaw: brass A-frame stand, lacquered beam, a pad where the tall domino lands, a cup that holds marble B
+  const [px, py, pz] = S.pivot;
+  for (const dz of [-0.32, 0.32]) {
+    rod(V(px - 0.45, 0, pz + dz), V(px, py, pz + dz), 0.05, mats.brass, g, 10);
+    rod(V(px + 0.45, 0, pz + dz), V(px, py, pz + dz), 0.05, mats.brass, g, 10);
+  }
+  rod(V(px, py, pz - 0.4), V(px, py, pz + 0.4), 0.06, mats.chrome, g, 14);
+  const beam = new THREE.Group(); beam.position.set(px, py, pz); g.add(beam);
+  solid(new RoundedBoxGeometry(S.half * 2 + 0.3, 0.14, 0.5, 2, 0.05), mats.sun, beam);
+  solid(new RoundedBoxGeometry(0.5, 0.1, 0.56, 2, 0.04), mats.tomato, beam, -S.half + 0.2, 0.1, 0);
+  const cup = solid(new THREE.TorusGeometry(0.14, 0.04, 10, 28), mats.brass, beam, S.half - 0.15, 0.1, 0);
+  cup.rotation.x = PI / 2;
+  const cupLocal = V(S.half - 0.15, 0.1 + 0.125, 0);
+  const onBeam = (t) => cupLocal.clone().applyAxisAngle(new THREE.Vector3(0, 0, 1), seesawAngle(t)).add(V(px, py, pz));
+
+  // helix: chrome column, rails, spokes, a brass catch cone at the top
+  const { curve, entry } = helixChuteCurve();
+  const isHelix = (p) => Math.hypot(p.x - H.c[0], p.z - H.c[1]) < H.R + 0.4;
+  g.add(buildRails(curve, mats, { gauge: 0.25, drop: 0.13, postEvery: 1.1, postMat: mats.emerald, skipPosts: isHelix }));
+  solid(new THREE.CylinderGeometry(0.22, 0.26, H.top + 0.9, 32), mats.chrome, g, H.c[0], (H.top + 0.9) / 2, H.c[1]);
+  solid(new THREE.SphereGeometry(0.34, 24, 16), mats.tomato, g, H.c[0], H.top + 0.95, H.c[1]);
+  solid(new THREE.CylinderGeometry(0.7, 0.8, 0.14, 32), mats.brass, g, H.c[0], 0.07, H.c[1]);
+  const spokes = Math.round(H.turns * 7);
+  for (let i = 0; i <= spokes; i++) {
+    const u = i / spokes, a = H.a0 + H.turns * TAU * u, y = lerp(H.top, H.bottom, u) - 0.2;
+    rod(V(H.c[0] + 0.2 * Math.cos(a), y, H.c[1] + 0.2 * Math.sin(a)), V(H.c[0] + (H.R) * Math.cos(a), y, H.c[1] + (H.R) * Math.sin(a)), 0.025, mats.brass, g, 6);
+  }
+  const top = curve.getPointAt(0);
+  // catch cup: a brass-rimmed acrylic bowl the flying marble drops into before it joins the rails
+  const bowl = solid(new THREE.SphereGeometry(0.42, 32, 12, 0, TAU, PI * 0.55, PI * 0.45), mats.acrylic(COLOR.aqua, 0.5), g, top.x, top.y + 0.3, top.z);
+  bowl.castShadow = false;
+  const lip = solid(new THREE.TorusGeometry(0.41, 0.035, 8, 40), mats.brass, g, top.x, top.y + 0.3 + 0.42 * Math.cos(PI * 0.55), top.z);
+  lip.rotation.x = PI / 2;
+
+  const legs = [
+    { t0: 0, t1: T.launch, mode: 'carry', at: onBeam },
+    hopLeg(onBeam(T.launch), top.clone(), 1.4, T.flight[0], T.flight[1]),
+    along(curve, T.helix[0], T.helix[1], gather(0.25)),
+  ];
+  const update = (t) => { beam.rotation.z = seesawAngle(t); };
+  const focus = () => V(px - 0.3, py + 0.4, pz);
+  return { update, legs, focus, entry };
+}
+
+/* ---- src/60-funnel-xylo.js ---- */
+/* ───────── funnel vortex, xylophone bars, the hop into the bucket ───────── */
+function funnelSurfaceY(rad) {
+  const F = CONFIG.layout.funnel;
+  return F.holeY + ((rad - F.holeR) / (F.rimR - F.holeR)) * (F.rimY - F.holeY);
+}
+/** Where a marble coming from `from` meets the funnel tangentially, turning counter-clockwise seen from above. */
+function funnelEntry(from) {
+  const F = CONFIG.layout.funnel;
+  const toC = V(F.c[0] - from.x, 0, F.c[1] - from.z).normalize();
+  // tangent (-sin psi, cos psi) in (x, z) must equal the approach direction
+  const psi = Math.atan2(-toC.x, toC.z);
+  return { psi, tan: toC, p: V(F.c[0] + F.entryR * Math.cos(psi), 0, F.c[1] + F.entryR * Math.sin(psi)) };
+}
+/** Marble centre height above the cone wall at radius rad. */
+const funnelRide = (rad) => funnelSurfaceY(rad) + CONFIG.marble.r * 1.2;
+
+function barTop(i) { const X = CONFIG.layout.xylo; return V(X.x0 + i * X.dx, X.y0 - i * X.dy, X.z); }
+function barHitTimes() {
+  const X = CONFIG.layout.xylo, T = CONFIG.time, hop = (T.xylo[1] - T.xylo[0]) / (X.bars - 1);
+  return Array.from({ length: X.bars }, (_, i) => T.drop[1] + i * hop);
+}
+/** Rim height of the hanging bucket; it sinks once marble B is inside. */
+function bucketRim(t) {
+  const K = CONFIG.layout.bucket, T = CONFIG.time, u = seg(t, T.bucket[0], T.bucket[1]);
+  return K.top - K.drop * u * u * (3 - 2 * u);
+}
+const bucketDepth = 0.42;
+
+function createFunnelXylo(scene, mats, entry) {
+  const F = CONFIG.layout.funnel, X = CONFIG.layout.xylo, K = CONFIG.layout.bucket, T = CONFIG.time, r = CONFIG.marble.r;
+  const g = new THREE.Group(); scene.add(g);
+
+  // funnel: acrylic cone on three brass legs
+  const prof = [];
+  for (let i = 0; i <= 16; i++) { const rad = lerp(F.holeR, F.rimR, i / 16); prof.push(new THREE.Vector2(rad, funnelSurfaceY(rad) - F.holeY)); }
+  prof.push(new THREE.Vector2(F.rimR + 0.08, F.rimY - F.holeY + 0.04));
+  const cone = solid(new THREE.LatheGeometry(prof, 64), mats.acrylic(COLOR.cobalt, 0.6), g, F.c[0], F.holeY, F.c[1]);
+  cone.castShadow = false;
+  const rim = solid(new THREE.TorusGeometry(F.rimR + 0.06, 0.05, 10, 64), mats.brass, g, F.c[0], F.rimY + 0.03, F.c[1]);
+  rim.rotation.x = PI / 2;
+  const collar = solid(new THREE.TorusGeometry(F.holeR + 0.02, 0.05, 10, 32), mats.brass, g, F.c[0], F.holeY, F.c[1]);
+  collar.rotation.x = PI / 2;
+  for (let k = 0; k < 3; k++) {
+    const a = PI / 6 + (k / 3) * TAU;
+    rod(V(F.c[0] + (F.rimR + 0.06) * Math.cos(a), F.rimY, F.c[1] + (F.rimR + 0.06) * Math.sin(a)),
+      V(F.c[0] + (F.rimR + 0.5) * Math.cos(a), 0, F.c[1] + (F.rimR + 0.5) * Math.sin(a)), 0.05, mats.brass, g, 10);
+  }
+
+  // xylophone: bars on two sloped brass rails, rainbow acrylic that flashes when struck
+  const bars = [];
+  const lenAt = (i) => lerp(X.len[0], X.len[1], i / (X.bars - 1));
+  for (let i = 0; i < X.bars; i++) {
+    const p = barTop(i), mat = mats.acrylic(DOMINO_HUES[i % DOMINO_HUES.length], 0.25);
+    mat.emissive = new THREE.Color(DOMINO_HUES[i % DOMINO_HUES.length]);
+    mat.emissiveIntensity = 0;
+    const bar = solid(new RoundedBoxGeometry(X.w, 0.1, lenAt(i), 2, 0.035), mat, g, p.x, p.y - 0.05, p.z);
+    bars.push({ mesh: bar, y: p.y - 0.05, mat });
+    for (const s of [-1, 1]) {
+      const zz = p.z + s * (lenAt(i) / 2 - 0.16);
+      solid(new THREE.CylinderGeometry(0.035, 0.035, 0.06, 10), mats.chrome, g, p.x, p.y - 0.12, zz);
+    }
+  }
+  for (const s of [-1, 1]) {
+    const a = barTop(0), b = barTop(X.bars - 1);
+    const za = a.z + s * (lenAt(0) / 2 - 0.16), zb = b.z + s * (lenAt(X.bars - 1) / 2 - 0.16);
+    rod(V(a.x - 0.3, a.y - 0.16, za), V(b.x + 0.3, b.y - 0.16, zb), 0.04, mats.brass, g, 10);
+    rod(V(a.x - 0.3, a.y - 0.16, za), V(a.x - 0.3, 0, za), 0.045, mats.pink, g, 10);
+    rod(V(b.x + 0.3, b.y - 0.16, zb), V(b.x + 0.3, 0, zb), 0.045, mats.pink, g, 10);
+  }
+
+  // bucket hanging from the spool rope
+  const bucket = new THREE.Group(); g.add(bucket);
+  const bprof = [new THREE.Vector2(0.001, -bucketDepth), new THREE.Vector2(K.r * 0.82, -bucketDepth), new THREE.Vector2(K.r, 0), new THREE.Vector2(K.r + 0.03, 0.02)];
+  solid(new THREE.LatheGeometry(bprof, 40), new THREE.MeshPhysicalMaterial({ color: COLOR.brass, metalness: 1, roughness: 0.3, side: THREE.DoubleSide }), bucket);
+  const handle = solid(new THREE.TorusGeometry(K.r, 0.02, 8, 32, PI), mats.chrome, bucket);
+  handle.rotation.y = PI / 2;
+  const ropeTop = V(K.x, CONFIG.layout.gears.list[0].c[1], K.z);
+  const rope = rod(V(K.x, 2, K.z), ropeTop, 0.018, mats.rope, g, 6);
+
+  // B legs: vortex, drop, bar hops, into the bucket, ride the bucket down
+  const psiEnd = entry.psi + F.turns * TAU;
+  const spiral = {
+    t0: T.funnel[0], t1: T.funnel[1], mode: 'roll', at: (t) => {
+      const u = seg(t, T.funnel[0], T.funnel[1]), s = Math.pow(u, 1.45);
+      const rad = lerp(F.entryR, F.holeR * 0.7, Math.pow(u, 0.9)), psi = lerp(entry.psi, psiEnd, s);
+      return V(F.c[0] + rad * Math.cos(psi), funnelRide(Math.max(rad, F.holeR)), F.c[1] + rad * Math.sin(psi));
+    },
+  };
+  const spiralEnd = spiral.at(T.funnel[1]);
+  const hits = barHitTimes();
+  const onBar = (i) => barTop(i).add(V(0, r, 0));
+  const inBucket = (t) => V(K.x, bucketRim(t) - bucketDepth + r + 0.03, K.z);
+  const legs = [
+    spiral,
+    { t0: T.drop[0], t1: T.drop[1], mode: 'fly', at: (t) => { const u = seg(t, T.drop[0], T.drop[1]); return spiralEnd.clone().lerp(onBar(0), u * u); } },
+  ];
+  for (let i = 0; i < X.bars - 1; i++) legs.push(hopLeg(onBar(i), onBar(i + 1), X.hop, hits[i], hits[i + 1]));
+  legs.push(hopLeg(onBar(X.bars - 1), inBucket(T.toBucket[1]), X.hop + 0.25, T.toBucket[0], T.toBucket[1]));
+  legs.push({ t0: T.toBucket[1], t1: T.bucket[1], mode: 'carry', at: inBucket });
+
+  const update = (t) => {
+    bars.forEach((b, i) => {
+      const s = t - hits[i];
+      const ring = s >= 0 ? Math.exp(-s / 0.012) : 0;
+      b.mesh.position.y = b.y - 0.045 * ring * Math.abs(Math.cos(s / 0.0035));
+      b.mat.emissiveIntensity = s >= 0 ? 0.25 + 2.2 * Math.exp(-s / 0.03) : 0;
+    });
+    const rimY = bucketRim(t);
+    bucket.position.set(K.x, rimY, K.z);
+    placeRod(rope, V(K.x, rimY + K.r, K.z), ropeTop);
+  };
+  return { update, legs, bucketRim };
+}
+
+/* ---- src/70-gears.js ---- */
+/* ───────── gear train, spool and drum, flag on a pulley mast, tiny catapult with the steel ball ───────── */
+function gearGeometry(n, module, depth) {
+  const r = (n * module) / 2, ro = r + module, rr = r - 1.25 * module, p = TAU / n;
+  const shape = new THREE.Shape();
+  for (let k = 0; k < n; k++) {
+    const a = k * p;
+    const pts = [[rr, a - 0.5 * p], [rr, a - 0.27 * p], [ro, a - 0.13 * p], [ro, a + 0.13 * p], [rr, a + 0.27 * p]];
+    pts.forEach(([rad, ang], i) => {
+      const x = rad * Math.cos(ang), y = rad * Math.sin(ang);
+      if (k === 0 && i === 0) shape.moveTo(x, y); else shape.lineTo(x, y);
+    });
+  }
+  shape.closePath();
+  // lightening holes read as crafted parts and show the gear turning even without teeth in view
+  const holes = n >= 12 ? 5 : 0, hr = rr * 0.22, hc = rr * 0.58;
+  for (let i = 0; i < holes; i++) {
+    const a = (i / holes) * TAU, h = new THREE.Path();
+    h.absarc(hc * Math.cos(a), hc * Math.sin(a), hr, 0, TAU, true);
+    shape.holes.push(h);
+  }
+  const axle = new THREE.Path(); axle.absarc(0, 0, module * 0.9, 0, TAU, true); shape.holes.push(axle);
+  const geo = new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: true, bevelThickness: 0.015, bevelSize: 0.015, bevelSegments: 2, curveSegments: 6 });
+  geo.translate(0, 0, -depth / 2);
+  return geo;
+}
+
+/** Gear angles for the whole train from the first gear's angle; each mesh keeps teeth interleaved. */
+function trainAngles(theta1) {
+  const list = CONFIG.layout.gears.list, out = [theta1];
+  for (let j = 1; j < list.length; j++) {
+    const a = list[j - 1], b = list[j];
+    const alpha = Math.atan2(b.c[1] - a.c[1], b.c[0] - a.c[0]);
+    out.push(alpha + PI + (alpha - out[j - 1]) * (a.n / b.n) - PI / b.n);
+  }
+  return out;
+}
+
+function catapultAngle(t) {
+  const C = CONFIG.layout.catapult, T = CONFIG.time, u = seg(t, T.fire[0], T.fire[1]);
+  const s = t - T.fire[1];
+  const wobble = s > 0 ? 0.14 * Math.exp(-s / 0.01) * Math.sin(s / 0.0028) : 0;
+  return lerp(C.cocked, C.stop, u * u) - wobble;
+}
+function catapultRelease() {
+  const C = CONFIG.layout.catapult, T = CONFIG.time;
+  return T.fire[0] + Math.sqrt((C.releaseAt - C.cocked) / (C.stop - C.cocked)) * (T.fire[1] - T.fire[0]);
+}
+
+function createGears(scene, mats) {
+  const G = CONFIG.layout.gears, K = CONFIG.layout.bucket, M = CONFIG.layout.mast, C = CONFIG.layout.catapult, T = CONFIG.time;
+  const g = new THREE.Group(); scene.add(g);
+
+  // board: navy lacquer panel on two posts
+  const bx = [G.list[0].c[0] - 1.4, G.list[3].c[0] + 1.0], by = [0.3, 5.3];
+  const board = solid(new RoundedBoxGeometry(bx[1] - bx[0], by[1] - by[0], 0.14, 3, 0.05), mats.lacquer('#0d2a8a'), g, (bx[0] + bx[1]) / 2, (by[0] + by[1]) / 2, G.board);
+  for (const x of bx) rod(V(x + 0.2 * Math.sign((bx[0] + bx[1]) / 2 - x), 0, G.board - 0.12), V(x + 0.2 * Math.sign((bx[0] + bx[1]) / 2 - x), by[1] - 0.2, G.board - 0.12), 0.08, mats.tomato, g, 12);
+  board.castShadow = true;
+
+  const gearMats = [mats.brass, mats.acrylic(COLOR.tomato, 0.35), mats.brass, mats.acrylic(COLOR.emerald, 0.35)];
+  const gears = G.list.map((gd, i) => {
+    const mesh = solid(gearGeometry(gd.n, G.module, 0.16), gearMats[i], g, gd.c[0], gd.c[1], G.z);
+    solid(new THREE.CylinderGeometry(0.07, 0.07, 0.5, 14), mats.chrome, g, gd.c[0], gd.c[1], G.z + 0.05).rotation.x = PI / 2;
+    solid(new THREE.CylinderGeometry(0.13, 0.13, 0.08, 20), mats.brass, g, gd.c[0], gd.c[1], G.z + 0.18).rotation.x = PI / 2;
+    return mesh;
+  });
+  // spool on the first gear (rope to the bucket) and drum on the last (rope to the flag)
+  const g1 = G.list[0], g4 = G.list[3];
+  const spoolLen = Math.abs(K.z - G.z) + 0.15;
+  const spool = solid(new THREE.CylinderGeometry(G.spoolR, G.spoolR, spoolLen, 24), mats.sun, g, g1.c[0], g1.c[1], (K.z + G.z) / 2);
+  spool.rotation.x = PI / 2;
+  const drumZ = M.z;
+  const drum = solid(new THREE.CylinderGeometry(G.drumR, G.drumR, 0.3, 32), mats.pink, g, g4.c[0], g4.c[1], drumZ);
+  drum.rotation.x = PI / 2;
+  solid(new THREE.CylinderGeometry(0.05, 0.05, Math.abs(drumZ - G.z) + 0.1, 10), mats.chrome, g, g4.c[0], g4.c[1], (drumZ + G.z) / 2).rotation.x = PI / 2;
+
+  // mast with a pulley wheel on top, rope from the drum over the wheel down to the flag
+  rod(V(M.x, 0, M.z - 0.25), V(M.x, M.h, M.z - 0.25), 0.07, mats.chrome, g, 14);
+  solid(new THREE.CylinderGeometry(0.3, 0.36, 0.12, 24), mats.brass, g, M.x, 0.06, M.z - 0.25);
+  const pulleyC = V((g4.c[0] + G.drumR + M.x - 0.2) / 2, M.h - 0.35, M.z);
+  const pulleyR = (M.x - 0.2 - (g4.c[0] + G.drumR)) / 2;
+  const wheel = solid(new THREE.TorusGeometry(pulleyR, 0.05, 10, 32), mats.brass, g, pulleyC.x, pulleyC.y, pulleyC.z);
+  rod(pulleyC.clone().setX(pulleyC.x), V(M.x, pulleyC.y, M.z - 0.25), 0.03, mats.chrome, g, 8);
+  const ropeUp = rod(V(g4.c[0] + G.drumR, g4.c[1], drumZ), V(g4.c[0] + G.drumR, pulleyC.y, drumZ), 0.018, mats.rope, g, 6);
+  const ropeDown = rod(V(M.x - 0.2, pulleyC.y, drumZ), V(M.x - 0.2, 1, drumZ), 0.018, mats.rope, g, 6);
+  ropeUp.castShadow = false;
+
+  // flag: a pennant that rides the rope up
+  const flag = new THREE.Group(); g.add(flag);
+  const pennantGeo = new THREE.BufferGeometry();
+  const segs = 10, fl = 1.25, fh = 0.7, pp = [];
+  for (let i = 0; i <= segs; i++) { const x = (i / segs) * fl, hh = fh * (1 - i / segs) / 2; pp.push(x, hh, 0, x, -hh, 0); }
+  pennantGeo.setAttribute('position', new THREE.Float32BufferAttribute(pp, 3));
+  const idx = []; for (let i = 0; i < segs; i++) { const a = i * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
+  pennantGeo.setIndex(idx); pennantGeo.computeVertexNormals();
+  const pennant = solid(pennantGeo, new THREE.MeshPhysicalMaterial({ color: COLOR.tomato, roughness: 0.6, sheen: 1, sheenColor: new THREE.Color('#ffd0c0'), side: THREE.DoubleSide }), flag, 0.05, 0, 0);
+  solid(new THREE.SphereGeometry(0.07, 14, 10), mats.brass, flag);
+  const flagY = (t) => lerp(M.flagLow, pulleyC.y - pulleyR - 0.5, (K.top - bucketRim(t)) / K.drop);
+
+  // catapult: base, uprights, arm with cup, trigger cord from the mast top
+  const [cx, cy, cz] = C.pivot;
+  solid(new RoundedBoxGeometry(1.8, 0.18, 0.9, 3, 0.05), mats.sun, g, cx + 0.3, 0.09, cz);
+  const stopP = V(cx + 0.55 * Math.cos(C.stop + 0.12), cy + 0.55 * Math.sin(C.stop + 0.12), cz);
+  for (const dz of [-0.3, 0.3]) {
+    solid(new RoundedBoxGeometry(0.16, cy + 0.1, 0.1, 2, 0.03), mats.tomato, g, cx, (cy + 0.1) / 2, cz + dz);
+    rod(V(cx, cy, cz + dz), V(stopP.x, stopP.y, cz + dz), 0.04, mats.tomato, g, 8);
+  }
+  rod(V(cx, cy, cz - 0.38), V(cx, cy, cz + 0.38), 0.05, mats.chrome, g, 12);
+  rod(V(stopP.x, stopP.y, cz - 0.36), V(stopP.x, stopP.y, cz + 0.36), 0.06, mats.ink, g, 12);
+  const arm = new THREE.Group(); arm.position.set(cx, cy, cz); g.add(arm);
+  solid(new RoundedBoxGeometry(C.arm + 0.1, 0.1, 0.12, 2, 0.04), mats.wood, arm, C.arm / 2, 0, 0);
+  const cup = solid(new THREE.SphereGeometry(0.2, 20, 10, 0, TAU, PI / 2, PI / 2), new THREE.MeshStandardMaterial({ color: COLOR.brass, metalness: 1, roughness: 0.3, side: THREE.DoubleSide }), arm, C.arm, 0.2, 0);
+  cup.castShadow = true;
+  const latch = solid(new THREE.CylinderGeometry(0.04, 0.04, 0.35, 10), mats.brass, g, cx + 0.95, 0.3, cz + 0.2);
+  const cord = rod(V(M.x, M.h - 0.2, M.z - 0.25), V(cx + 0.95, 0.45, cz + 0.2), 0.012, mats.rope, g, 5);
+  cord.castShadow = false;
+
+  // steel ball C: rides the cup, released at the arm angle in CONFIG, flies to the bell (leg added in finale)
+  const ballR = CONFIG.marble.ballR;
+  const cupLocal = V(C.arm, 0.2 - (0.2 - ballR) + 0.01, 0);
+  const onArm = (t) => cupLocal.clone().applyAxisAngle(new THREE.Vector3(0, 0, 1), catapultAngle(t)).add(V(cx, cy, cz));
+  const release = catapultRelease();
+
+  const update = (t) => {
+    const drop = K.top - bucketRim(t);
+    const angles = trainAngles(-drop / G.spoolR);
+    gears.forEach((m, i) => { m.rotation.z = angles[i]; });
+    spool.rotation.y = angles[0];
+    drum.rotation.y = angles[3];
+    const fy = flagY(t);
+    flag.position.set(M.x - 0.2, fy, drumZ);
+    placeRod(ropeDown, V(M.x - 0.2, pulleyC.y, drumZ), V(M.x - 0.2, fy + 0.05, drumZ));
+    const pos = pennantGeo.attributes.position, flap = 0.05 + 0.1 * win(t, T.bucket[0], T.flagTop);
+    for (let i = 0; i <= segs; i++) {
+      const x = (i / segs) * fl, z = Math.sin(x * 3.2 - t * 260) * flap * (x / fl);
+      pos.setZ(i * 2, z); pos.setZ(i * 2 + 1, z);
+    }
+    pos.needsUpdate = true;
+    latch.position.y = 0.3 + 0.3 * win(t, T.flagTop + 0.06, T.fire[0]);
+    arm.rotation.z = catapultAngle(t);
+  };
+  const focus = (t) => {
+    const k = win(t, T.bucket[0] + 0.1, T.flagTop);
+    const gearMid = V((G.list[0].c[0] + G.list[3].c[0]) / 2, 3.2, G.z);
+    const bucketP = V(K.x, bucketRim(t), K.z);
+    const flagP = V(M.x + 0.4, flagY(t), drumZ);
+    return k < 0.5 ? bucketP.lerp(gearMid, smooth(k * 2)) : gearMid.lerp(flagP, smooth(k * 2 - 1));
+  };
+  const catapultFocus = () => V(cx + 0.4, cy + 0.4, cz);
+  return { update, focus, catapultFocus, onArm, release };
+}
+
+/* ---- src/80-finale.js ---- */
+/* ───────── bell, pull cord, floor fan, rising MARBLE RUN banner ───────── */
+function bellAngle(t) {
+  const s = t - CONFIG.time.fly[1];
+  return s > 0 ? -0.42 * Math.exp(-s / 0.1) * Math.sin(s / 0.016) : 0;
+}
+/** Fan angle: spins up over T.fan, then keeps turning with scroll; clock adds an idle spin once it runs. */
+function fanAngle(t, clockSec) {
+  const T = CONFIG.time, w = T.fan[1] - T.fan[0], x = seg(t, T.fan[0], T.fan[1]);
+  const run = w * (x * x * x - (x * x * x * x) / 2) + Math.max(0, t - T.fan[1]);
+  return 420 * run + clockSec * 14 * x;
+}
+
+function makeBannerTexture() {
+  const Bn = CONFIG.layout.banner, w = 2048, h = Math.round(w * (Bn.top - Bn.roller) / (Bn.poles[1] - Bn.poles[0]));
+  const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+  const g = cv.getContext('2d');
+  g.fillStyle = COLOR.tomato; g.fillRect(0, 0, w, h);
+  g.strokeStyle = COLOR.sun; g.lineWidth = 16; g.setLineDash([54, 26]); g.strokeRect(46, 46, w - 92, h - 92);
+  const font = (px) => `800 ${px}px Unbounded`;
+  if (!document.fonts.check(font(100))) console.error('Unbounded is not loaded, the banner will use a system face');
+  const fit = (text, maxW, px) => { g.font = font(px); const m = g.measureText(text).width; return Math.min(px, (px * maxW) / m); };
+  g.textAlign = 'center'; g.textBaseline = 'alphabetic';
+  const s1 = fit('MARBLE', w * 0.84, 520), s2 = fit('RUN', w * 0.84, s1);
+  g.fillStyle = COLOR.ink;
+  g.font = font(s1); g.fillText('MARBLE', w / 2 + 10, h * 0.47 + 14);
+  g.font = font(s2); g.fillText('RUN', w / 2 + 10, h * 0.87 + 14);
+  g.fillStyle = COLOR.white; g.font = font(s1); g.fillText('MARBLE', w / 2, h * 0.47);
+  g.fillStyle = COLOR.sun; g.font = font(s2); g.fillText('RUN', w / 2, h * 0.87);
+  const tex = new THREE.CanvasTexture(cv);
+  tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
+  return tex;
+}
+
+function createFinale(scene, mats, gears) {
+  const Bl = CONFIG.layout.bell, Bn = CONFIG.layout.banner, T = CONFIG.time, ballR = CONFIG.marble.ballR;
+  const g = new THREE.Group(); scene.add(g);
+
+  // gallows and bell
+  const [bx, by, bz] = Bl.pivot;
+  for (const dz of [-0.9, 0.9]) {
+    rod(V(bx, 0, bz + dz), V(bx, by + 0.25, bz + dz), 0.07, mats.chrome, g, 14);
+    solid(new THREE.CylinderGeometry(0.28, 0.32, 0.08, 20), mats.brass, g, bx, 0.04, bz + dz);
+  }
+  rod(V(bx, by + 0.25, bz - 0.98), V(bx, by + 0.25, bz + 0.98), 0.08, mats.cobalt, g, 14);
+  const bell = new THREE.Group(); bell.position.set(bx, by + 0.2, bz); g.add(bell);
+  const bp = [[0.001, 0], [0.1, 0], [0.19, -0.06], [0.24, -0.2], [0.27, -0.45], [0.33, -0.7], [0.44, -0.86], [0.5, -0.95], [0.47, -0.95]]
+    .map(([x, y]) => new THREE.Vector2(x * Bl.r / 0.5, y * Bl.h / 0.95));
+  solid(new THREE.LatheGeometry(bp, 48), new THREE.MeshStandardMaterial({ color: COLOR.brass, metalness: 1, roughness: 0.18, side: THREE.DoubleSide, envMapIntensity: 1.4 }), bell);
+  rod(V(0, -0.05, 0), V(0, -0.72, 0), 0.02, mats.chrome, bell, 6);
+  solid(new THREE.SphereGeometry(0.1, 16, 12), mats.ink, bell, 0, -0.76, 0);
+  solid(new THREE.TorusGeometry(0.08, 0.025, 8, 20), mats.brass, bell, 0, 0.05, 0);
+  const hit = V(bx + Bl.r * 0.82 + ballR, by + 0.2 - Bl.h * 0.72, bz);
+
+  // dish that catches the steel ball
+  const dp = [[0.001, 0], [0.4, 0.02], [0.5, 0.1], [0.54, 0.14]].map(([x, y]) => new THREE.Vector2(x, y));
+  solid(new THREE.LatheGeometry(dp, 32), new THREE.MeshStandardMaterial({ color: COLOR.brass, metalness: 1, roughness: 0.25, side: THREE.DoubleSide }), g, Bl.dish[0], 0.01, Bl.dish[1]);
+  const rest = V(Bl.dish[0] + 0.12, 0.03 + ballR, Bl.dish[1]);
+
+  // floor fan pointing up under the banner
+  const [fx, fz] = Bn.fan, hubY = 0.62;
+  solid(new THREE.CylinderGeometry(0.42, 0.5, 0.12, 32), mats.brass, g, fx, 0.06, fz);
+  rod(V(fx, 0.1, fz), V(fx, hubY - 0.08, fz), 0.06, mats.chrome, g, 12);
+  const cage = solid(new THREE.TorusGeometry(0.74, 0.03, 8, 48), mats.brass, g, fx, hubY + 0.06, fz);
+  cage.rotation.x = PI / 2;
+  for (let k = 0; k < 6; k++) {
+    const a = (k / 6) * TAU;
+    rod(V(fx, hubY + 0.25, fz), V(fx + 0.74 * Math.cos(a), hubY + 0.06, fz + 0.74 * Math.sin(a)), 0.012, mats.brass, g, 4);
+  }
+  const rotor = new THREE.Group(); rotor.position.set(fx, hubY, fz); g.add(rotor);
+  solid(new THREE.SphereGeometry(0.11, 16, 12), mats.tomato, rotor);
+  const bladeMat = mats.acrylic(COLOR.cobalt, 0.45);
+  for (let k = 0; k < 5; k++) {
+    const blade = solid(new THREE.SphereGeometry(0.3, 16, 8), bladeMat, rotor);
+    blade.scale.set(1, 0.08, 0.45);
+    const holder = new THREE.Group(); holder.rotation.y = (k / 5) * TAU; rotor.add(holder);
+    holder.add(blade); blade.position.x = 0.36; blade.rotation.x = 0.45;
+  }
+  const lever = new THREE.Group(); lever.position.set(fx + 0.5, 0.14, fz); g.add(lever);
+  solid(new RoundedBoxGeometry(0.06, 0.3, 0.06, 2, 0.02), mats.tomato, lever, 0, 0.15, 0);
+
+  // pull cord: bell rim, a floor eye, the fan switch
+  const eye = V(bx - 0.2, 0.12, bz + 0.95);
+  solid(new THREE.TorusGeometry(0.06, 0.02, 8, 16), mats.brass, g, eye.x, eye.y, eye.z);
+  const cordA = rod(V(bx, 3, bz), eye, 0.012, mats.rope, g, 5), cordB = rod(eye, V(fx + 0.5, 0.42, fz), 0.012, mats.rope, g, 5);
+  cordA.castShadow = cordB.castShadow = false;
+
+  // banner: chrome poles, brass roller, a rod that rises with the cloth
+  const [x0, x1] = Bn.poles, cxB = (x0 + x1) / 2, W = x1 - x0 - 0.2, Hmax = Bn.top - Bn.roller;
+  for (const x of [x0, x1]) {
+    rod(V(x, 0, Bn.z), V(x, Bn.top + 0.45, Bn.z), 0.07, mats.chrome, g, 14);
+    solid(new THREE.SphereGeometry(0.13, 16, 12), mats.sun, g, x, Bn.top + 0.5, Bn.z);
+    solid(new THREE.CylinderGeometry(0.26, 0.3, 0.08, 20), mats.brass, g, x, 0.04, Bn.z);
+  }
+  const roller = solid(new THREE.CylinderGeometry(0.13, 0.13, W + 0.1, 24), mats.brass, g, cxB, Bn.roller, Bn.z);
+  roller.rotation.z = PI / 2;
+  const topRod = solid(new THREE.CylinderGeometry(0.05, 0.05, x1 - x0 + 0.1, 12), mats.chrome, g, cxB, Bn.roller, Bn.z);
+  topRod.rotation.z = PI / 2;
+  const cols = 48, rows = 18, verts = (cols + 1) * (rows + 1);
+  const clothGeo = new THREE.BufferGeometry();
+  clothGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(verts * 3), 3));
+  clothGeo.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(verts * 2), 2));
+  const ci = [];
+  for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) {
+    const a = j * (cols + 1) + i, b = a + cols + 1;
+    ci.push(a, b, a + 1, b, b + 1, a + 1);
+  }
+  clothGeo.setIndex(ci);
+  const cloth = new THREE.Mesh(clothGeo, new THREE.MeshStandardMaterial({ map: makeBannerTexture(), roughness: 0.86, side: THREE.DoubleSide, envMapIntensity: 0.5 }));
+  cloth.castShadow = cloth.receiveShadow = true;
+  cloth.position.set(cxB, 0, Bn.z);
+  g.add(cloth);
+
+  const rodY = (t) => Bn.roller + 0.06 + (Hmax - 0.06) * clamp(backOut(seg(t, T.banner[0], T.banner[1]), 1.2), 0, 1.03);
+  const legs = [
+    { t0: 0, t1: gears.release, mode: 'carry', at: gears.onArm },
+    hopLeg(gears.onArm(gears.release), hit, 3.2, gears.release, T.fly[1]),
+    hopLeg(hit, rest, 0.45, T.bounce[0], T.bounce[1]),
+  ];
+
+  const bellPoint = V();
+  const update = (t, clockSec) => {
+    bell.rotation.z = bellAngle(t);
+    bellPoint.set(0, -Bl.h, 0).applyAxisAngle(new THREE.Vector3(0, 0, 1), bell.rotation.z).add(bell.position);
+    placeRod(cordA, bellPoint, eye);
+    lever.rotation.z = 0.9 * win(t, T.fan[0] - 0.02, T.fan[0] + 0.01);
+    rotor.rotation.y = fanAngle(t, clockSec);
+    const top = rodY(t), h = top - Bn.roller, vis = h / Hmax;
+    topRod.position.y = top;
+    roller.rotation.y = 0;
+    roller.rotation.x = -h / 0.13;
+    const full = seg(t, T.fan[0], T.fan[1]);
+    const pos = clothGeo.attributes.position, uv = clothGeo.attributes.uv;
+    for (let j = 0; j <= rows; j++) {
+      const v = j / rows, y = top - v * h, belly = Math.sin(PI * v);
+      for (let i = 0; i <= cols; i++) {
+        const u = i / cols, x = (u - 0.5) * W;
+        const edge = Math.sin(PI * u) * 0.6 + 0.4;
+        const z = belly * edge * (-0.28 * full * vis + 0.07 * full * Math.sin(x * 1.1 + y * 1.6 + clockSec * 5.5));
+        const k = j * (cols + 1) + i;
+        pos.setXYZ(k, x, y, z);
+        uv.setXY(k, u, 1 - v * vis);
+      }
+    }
+    pos.needsUpdate = true; uv.needsUpdate = true;
+    clothGeo.computeVertexNormals();
+    cloth.visible = h > 0.02;
+  };
+  const focus = (t) => {
+    const k = win(t, T.fan[0], T.banner[1]);
+    return V(fx, hubY, fz).lerp(V(cxB, (Bn.roller + rodY(t)) / 2, Bn.z), k);
+  };
+  const needsClock = (t) => t > T.fan[0];
+  return { update, legs, focus, needsClock };
+}
+
+/* ---- src/85-camera.js ---- */
+/* ───────── camera: keyed dolly and crane moves that follow the action point ───────── */
+/**
+ * sources: [{ from, at(t) }] in time order. The action point hands over from one source to the next
+ * across a short window around `from`, so the follow target never jumps.
+ */
+function createFocus(sources, blend = 0.02) {
+  return (t) => {
+    const out = sources[0].at(t).clone();
+    for (let k = 1; k < sources.length; k++) {
+      const w = win(t, sources[k].from - blend, sources[k].from + blend);
+      if (w > 0) out.lerp(sources[k].at(t), w);
+    }
+    return out;
+  };
+}
+
+function createCameraRig(camera, focus) {
+  const C = CONFIG.camera, shots = CONFIG.shots;
+  const pointer = { x: 0, y: 0, tx: 0, ty: 0 };
+  if (!coarse && !reduce) addEventListener('pointermove', (e) => { pointer.tx = (e.clientX / innerWidth) * 2 - 1; pointer.ty = (e.clientY / innerHeight) * 2 - 1; });
+  const targetOf = (shot, t, act) => (shot.p ? V(...shot.p).lerp(act, shot.follow) : act.clone());
+  const pose = (t) => {
+    if (reduce) return { target: V(...CONFIG.still.p), az: CONFIG.still.az, el: CONFIG.still.el, d: CONFIG.still.d, fov: CONFIG.still.fov };
+    const act = focus(t);
+    let i = shots.length - 2;
+    for (let k = 0; k < shots.length - 1; k++) if (t < shots[k + 1].t) { i = k; break; }
+    const a = shots[i], b = shots[i + 1], u = smooth(seg(t, a.t, b.t));
+    return {
+      target: targetOf(a, t, act).lerp(targetOf(b, t, act), u),
+      az: lerp(a.az, b.az, u), el: lerp(a.el, b.el, u),
+      d: Math.exp(lerp(Math.log(a.d), Math.log(b.d), u)), fov: lerp(a.fov, b.fov, u),
+    };
+  };
+  /** Wider lens on portrait screens: keep most of the landscape horizontal view instead of cropping it. */
+  const fovFor = (vfov, d) => {
+    const aspect = innerWidth / innerHeight;
+    if (aspect >= 1.2) return vfov;
+    // close shots keep most of the width; wide shots of the whole table accept a crop so the machine stays large
+    const keep = lerp(C.portraitHfovScale, C.portraitWideScale, seg(d, C.portraitNear, C.portraitFar));
+    const hfov = 2 * Math.atan(Math.tan((vfov * DEG) / 2) * (16 / 9)) * keep;
+    return Math.min(C.portraitMaxFov, (2 * Math.atan(Math.tan(hfov / 2) / aspect)) / DEG);
+  };
+  return (t) => {
+    pointer.x += (pointer.tx - pointer.x) * 0.06; pointer.y += (pointer.ty - pointer.y) * 0.06;
+    const p = pose(t);
+    const portrait = innerWidth / innerHeight < 1.2;
+    const d = p.d * (portrait ? C.portraitDist : 1);
+    const az = (p.az + pointer.x * 3) * DEG, el = clamp(p.el - pointer.y * 2, 3, 85) * DEG;
+    camera.position.set(p.target.x + d * Math.sin(az) * Math.cos(el), p.target.y + d * Math.sin(el), p.target.z + d * Math.cos(az) * Math.cos(el));
+    camera.lookAt(p.target);
+    const fov = fovFor(p.fov, p.d);
+    if (Math.abs(camera.fov - fov) > 1e-3 || camera.aspect !== innerWidth / innerHeight) {
+      camera.fov = fov; camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
+    }
+    const settling = Math.abs(pointer.tx - pointer.x) + Math.abs(pointer.ty - pointer.y) > 0.002;
+    return { target: p.target, d, settling };
+  };
+}
+
+/* ---- src/90-boot.js ---- */
+/* ───────── boot ───────── */
+function boot() {
+  const T = CONFIG.time;
+  const stage = createStage($('#gl'));
+  const mats = createMaterials();
+  createTable(stage.scene, mats);
+  const start = createStart(stage.scene, mats);
+  const dominoes = createDominoes(stage.scene, mats);
+  const helix = createSeesawHelix(stage.scene, mats);
+  const funnel = createFunnelXylo(stage.scene, mats, helix.entry);
+  const gears = createGears(stage.scene, mats);
+  const finale = createFinale(stage.scene, mats, gears);
+
+  const marbleB = makeMarble(mats, { glass: '#ff3d6e', vane: COLOR.white });
+  stage.scene.add(marbleB);
+  const B = createActor(marbleB, CONFIG.marble.r, [...helix.legs, ...funnel.legs]);
+  const ball = new THREE.Mesh(new THREE.SphereGeometry(CONFIG.marble.ballR, 40, 28), mats.chrome);
+  ball.castShadow = true;
+  stage.scene.add(ball);
+  const Cb = createActor(ball, CONFIG.marble.ballR, finale.legs);
+
+  const focus = createFocus([
+    { from: 0, at: start.A.peek },
+    { from: T.rollA[1], at: dominoes.focus },
+    { from: T.seesaw[0], at: helix.focus },
+    { from: T.launch + 0.01, at: B.peek },
+    { from: T.bucket[0] + 0.02, at: gears.focus },
+    { from: T.flagTop + 0.06, at: gears.catapultFocus },
+    { from: gears.release, at: Cb.peek },
+    { from: T.bounce[0] + 0.03, at: finale.focus },
+  ]);
+  const place = createCameraRig(stage.camera, focus);
+  const overlay = createOverlay();
+  timeline.measure();
+
+  let lastT = -1, lastW = 0, lastH = 0, settling = false;
+  addEventListener('pointermove', () => { settling = !reduce; });
+  const frame = (ms) => {
+    const t = timeline.now(), clockSec = reduce ? 0 : ms / 1000;
+    overlay(t);
+    // draw only when something changed: scroll, size, pointer parallax easing, or the running fan and cloth
+    const live = !reduce && (finale.needsClock(t) || settling);
+    if (t === lastT && innerWidth === lastW && innerHeight === lastH && !live) return;
+    lastT = t; lastW = innerWidth; lastH = innerHeight;
+    start.update(t);
+    dominoes.update(t);
+    helix.update(t);
+    funnel.update(t);
+    gears.update(t);
+    finale.update(t, clockSec);
+    B.update(t);
+    Cb.update(t);
+    const view = place(t);
+    settling = view.settling;
+    stage.aimShadow(view.target, view.d);
+    stage.render();
+  };
+  const loop = (ms) => {
+    requestAnimationFrame(loop);
+    if (lenis) lenis.raf(ms);
+    if (document.hidden) return; // paused while the tab is hidden
+    frame(ms);
+  };
+  requestAnimationFrame(loop);
+  addEventListener('resize', () => { lastT = -1; timeline.measure(); });
+}
+
+document.fonts.load('800 100px Unbounded')
+  .catch((e) => console.error('display font failed to load', e))
+  .then(() => {
+    try { boot(); } catch (e) { console.error('MARBLE RUN failed to start', e); }
+  });
+
+</script>
+</body>
+</html>

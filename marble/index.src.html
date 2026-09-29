@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MARBLE RUN</title>
+<meta name="description" content="스크롤로 구슬을 굴려 도미노, 시소, 나선 레일, 깔때기, 실로폰, 톱니, 도르래, 투석기, 종을 차례로 움직이는 3D 연쇄 장치.">
+<meta property="og:title" content="MARBLE RUN">
+<meta property="og:image" content="https://ahttoh.github.io/design-lab/assets/thumb/marble.webp">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@800&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<style>
+  :root {
+    /* Every segment's --len is multiplied by this one value. 2026-09-29: 1 gives 7,000vh in six segments. */
+    --scroll-stretch: 1;
+    --studio: #0b3fb8; --floor: #064f5c; --ink: #04143d;
+    --tomato: #ff3b2f; --sun: #ffc21a; --emerald: #00c070; --white: #ffffff;
+    --display: 'Unbounded', 'Pretendard Variable', system-ui, sans-serif;
+    --korean: 'Pretendard Variable', system-ui, sans-serif;
+    --title: clamp(3.4rem, 0.6rem + 11vw, 13rem);
+    --word: clamp(3rem, 0.6rem + 8.4vw, 10rem);
+    --gutter: clamp(16px, 5vw, 80px);
+    --ease: cubic-bezier(.16, 1, .3, 1);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; overflow-x: clip; }
+  body { background: var(--floor); color: var(--white); font-family: var(--korean); }
+  ::selection { background: var(--sun); color: var(--ink); }
+
+  #gl { position: fixed; inset: 0; width: 100%; height: 100%; display: block; z-index: 0; }
+  main { position: relative; z-index: 1; }
+  .scene { position: relative; height: calc(var(--len) * var(--scroll-stretch)); }
+  .pin { position: sticky; top: 0; height: 100vh; overflow: hidden; pointer-events: none; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+  /* display words: big, solid, no tracking. Opacity and lift come from the segment progress in JS. */
+  .title, .word { margin: 0; font-family: var(--display); font-weight: 800; line-height: .92; letter-spacing: -.03em; white-space: nowrap;
+    color: var(--white); text-shadow: 0 .04em 0 var(--ink); will-change: opacity, transform; }
+  .title { position: absolute; left: var(--gutter); top: 8vh; font-size: var(--title); }
+  .title span { display: block; }
+  .title span + span { color: var(--sun); }
+  .word { position: absolute; font-size: var(--word); opacity: 0; }
+  .w-left { left: var(--gutter); bottom: 8vh; }
+  .w-right { right: var(--gutter); top: 9vh; text-align: right; }
+
+  .cue { position: absolute; left: 50%; bottom: 5vh; transform: translateX(-50%); display: grid; justify-items: center; gap: 10px;
+    font: 700 14px var(--korean); letter-spacing: -.01em; color: var(--white); will-change: opacity; }
+  .cue i { display: block; width: 22px; height: 22px; border-radius: 50%;
+    background: radial-gradient(circle at 34% 30%, #fff 0 12%, #7fb0ff 22%, #1f4bff 62%, #04143d 100%);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, .35); animation: roll 1.6s var(--ease) infinite; }
+  @keyframes roll { 0% { transform: translateY(-14px) rotate(0); } 55% { transform: translateY(12px) rotate(200deg); } 100% { transform: translateY(-14px) rotate(360deg); } }
+
+  /* finale: magnetic button back to the list */
+  .fin-copy { position: absolute; left: 0; right: 0; bottom: 6vh; display: grid; place-items: center; opacity: 0; will-change: opacity, transform; }
+  .magnet { display: grid; place-items: center; width: 136px; height: 136px; border-radius: 50%; text-decoration: none;
+    color: var(--ink); font: 800 1.08rem var(--korean); letter-spacing: -.02em;
+    background: var(--sun); border: 4px solid var(--ink); box-shadow: 0 8px 0 var(--ink), 0 20px 40px rgba(0, 0, 0, .35);
+    transition: background-color .2s, box-shadow .15s, color .2s; will-change: transform; }
+  .magnet span { pointer-events: none; will-change: transform; }
+  .magnet:hover { background: var(--tomato); color: var(--white); }
+  .magnet:active { box-shadow: 0 2px 0 var(--ink), 0 10px 24px rgba(0, 0, 0, .3); }
+  .magnet:focus-visible { outline: 4px solid var(--white); outline-offset: 7px; }
+  .fin-copy.on .magnet { pointer-events: auto; }
+  .fin-copy:not(.on) .magnet { pointer-events: none; }
+  .fin-copy:focus-within { opacity: 1 !important; }
+
+  @media (max-width: 760px) {
+    :root { --title: 17.5vw; --word: 15vw; }
+    .title { top: 7vh; }
+    .magnet { width: 118px; height: 118px; }
+    .fin-copy { bottom: 8vh; }
+  }
+  /* reduced motion: one static overview of the finished machine, one screen per segment */
+  .reduce .scene { height: 100vh; }
+  .reduce .cue, .reduce .word { display: none; }
+  .reduce .fin-copy { opacity: 1; }
+  .reduce .fin-copy .magnet { pointer-events: auto; }
+  @media (prefers-reduced-motion: reduce) { .cue i { animation: none; } }
+</style>
+</head>
+<body>
+<canvas id="gl" role="img" aria-label="구슬이 나무 레일을 굴러 도미노를 쓰러뜨리고, 시소가 두 번째 구슬을 쏘아 올리고, 나선 레일과 깔때기와 실로폰을 지나 톱니를 돌리고, 깃발이 오르고, 투석기가 쇠구슬을 종에 맞히고, 선풍기 바람에 MARBLE RUN 현수막이 오르는 연쇄 장치."></canvas>
+
+<main>
+  <section class="scene" id="s-start" style="--len:1100vh">
+    <div class="pin">
+      <h1 class="title" id="title" aria-label="MARBLE RUN"><span>MARBLE</span><span>RUN</span></h1>
+      <p class="word w-left" data-word="0.42,0.8" aria-hidden="true">ROLL</p>
+      <div class="cue" id="cue" aria-hidden="true"><i></i>스크롤</div>
+    </div>
+  </section>
+  <section class="scene" id="s-domino" style="--len:1300vh">
+    <div class="pin"><h2 class="word w-right" data-word="0.06,0.42">TOPPLE</h2></div>
+  </section>
+  <section class="scene" id="s-helix" style="--len:1200vh">
+    <div class="pin"><h2 class="word w-left" data-word="0.02,0.3">FLIP</h2></div>
+  </section>
+  <section class="scene" id="s-funnel" style="--len:1200vh">
+    <div class="pin"><h2 class="word w-right" data-word="0.08,0.46">SPIN</h2></div>
+  </section>
+  <section class="scene" id="s-gears" style="--len:1200vh">
+    <div class="pin"><h2 class="word w-left" data-word="0.04,0.4">WIND</h2></div>
+  </section>
+  <section class="scene" id="s-finale" style="--len:1000vh">
+    <div class="pin">
+      <h2 class="sr">MARBLE RUN</h2>
+      <div class="fin-copy" id="fin-copy"><a class="magnet" id="magnet" href="../"><span>목록으로</span></a></div>
+    </div>
+  </section>
+</main>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+<script src="https://cdn.jsdelivr.net/npm/lenis@1.1.13/dist/lenis.min.js"></script>
+<script type="module">
+%%JS%%
+</script>
+</body>
+</html>

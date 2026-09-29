@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DEEP SEA</title>
+<meta name="description" content="햇빛이 일렁이는 수면에서 빛이 끝나는 심연까지 내려갔다가 다시 떠오른다. 스크롤로 잠수하는 인터랙션 연습.">
+<meta property="og:title" content="DEEP SEA">
+<meta property="og:image" content="https://ahttoh.github.io/design-lab/assets/thumb/deepsea.webp">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@700;900&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<style>
+  :root {
+    /* Every zone's --len is multiplied by this. 2026-09-29: new studies sit near 7,000vh at 1. */
+    --scroll-stretch: 1;
+    --abyss: #00030a;
+    --navy: #041634;
+    --aqua: #7df6ff;
+    --foam: #e8fdff;
+    --lure: #5dffd8;
+    --focus: #5dffd8;
+    --display: 'Unbounded', 'Pretendard Variable', system-ui, sans-serif;
+    --korean: 'Pretendard Variable', system-ui, sans-serif;
+    --gutter: clamp(16px, 4vw, 64px);
+    --word-size: clamp(2.8rem, 1.1rem + 6.4vw, 7.6rem);
+    --ease: cubic-bezier(.16, 1, .3, 1);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    /* Reduced motion shows still views, so the long dive is shortened. */
+    :root { --scroll-stretch: .4; }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; overflow-x: clip; }
+  body { background: var(--abyss); color: var(--foam); font-family: var(--korean); }
+  ::selection { background: var(--lure); color: var(--abyss); }
+
+  #gl { position: fixed; inset: 0; width: 100%; height: 100%; display: block; z-index: 0; }
+
+  /* Zones are scroll runways only. Everything visible is the fixed canvas plus the fixed overlay. */
+  main { position: relative; z-index: 1; pointer-events: none; }
+  .zone { position: relative; height: calc(var(--len) * var(--scroll-stretch)); }
+  .sr { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+  .hud { position: fixed; inset: 0; z-index: 2; pointer-events: none; }
+  .fade { opacity: 0; will-change: opacity, transform; }
+
+  .cue { position: absolute; left: 50%; bottom: 4vh; width: 1px; height: 64px; background: rgba(232, 253, 255, .22); overflow: hidden; }
+  .cue::after { content: ''; position: absolute; inset: 0; background: linear-gradient(transparent, var(--foam)); transform-origin: top; animation: cue 2.4s var(--ease) infinite; }
+  @keyframes cue { 0% { transform: scaleY(0); opacity: 1; } 60% { transform: scaleY(1); opacity: 1; } 100% { transform: scaleY(1); opacity: 0; } }
+
+  /* Zone word: one big line, blurred in and out like something seen through water. */
+  .word { position: absolute; left: var(--gutter); right: var(--gutter); margin: 0; font-weight: 800; font-size: var(--word-size); letter-spacing: -.055em; line-height: .95;
+    color: var(--foam); text-shadow: 0 0 40px rgba(0, 20, 40, .55), 0 0 90px rgba(93, 255, 216, .18); }
+  .word.top { top: 9vh; }
+  .word.low { bottom: 10vh; }
+  .word.right { text-align: right; }
+
+  .fin { position: absolute; left: 0; right: 0; bottom: 9vh; display: grid; justify-items: center; gap: 28px; }
+  .fin-line { margin: 0; font-weight: 800; font-size: clamp(1.6rem, 1rem + 2.4vw, 3.2rem); letter-spacing: -.045em; color: var(--navy); text-shadow: 0 0 34px rgba(232, 253, 255, .7); }
+  .magnet { position: relative; display: grid; place-items: center; width: 132px; height: 132px; border-radius: 50%; text-decoration: none; color: var(--foam); font: 800 1rem var(--korean);
+    background: radial-gradient(circle at 38% 30%, #1d5fa0 0%, #0a2c5c 48%, #041634 100%);
+    box-shadow: inset 0 0 0 1px rgba(125, 246, 255, .55), 0 0 60px rgba(125, 246, 255, .45), 0 24px 50px rgba(0, 20, 50, .45);
+    transition: box-shadow .4s var(--ease); will-change: transform; }
+  .magnet span { pointer-events: none; will-change: transform; }
+  .magnet:hover { box-shadow: inset 0 0 0 1px var(--aqua), 0 0 100px rgba(125, 246, 255, .8), 0 24px 50px rgba(0, 20, 50, .45); }
+  .magnet:focus-visible { outline: 3px solid var(--navy); outline-offset: 8px; box-shadow: 0 0 0 11px var(--foam), 0 0 60px rgba(125, 246, 255, .6); }
+  .fin.on .magnet { pointer-events: auto; }
+
+  @media (max-width: 760px) {
+    .word.top { top: 7vh; }
+    .word.low { bottom: 12vh; }
+    .fin { bottom: 8vh; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .cue::after { animation: none; }
+    .magnet { transition: none; }
+  }
+</style>
+</head>
+<body>
+<canvas id="gl" aria-hidden="true"></canvas>
+
+<div class="hud">
+  <div class="cue fade" id="cue" aria-hidden="true"></div>
+  <p class="word fade" id="word" aria-hidden="true"></p>
+  <div class="fin fade" id="fin">
+    <p class="fin-line">다시 빛으로</p>
+    <a class="magnet" id="magnet" href="../"><span>목록으로</span></a>
+  </div>
+</div>
+
+<main>
+  <section class="zone" id="z-surface" style="--len:1000vh"><h1 class="sr">DEEP SEA, 햇빛이 일렁이는 수면 아래</h1></section>
+  <section class="zone" id="z-reef" style="--len:1300vh"><h2 class="sr">빛이 닿는 곳, 산호초와 물고기 떼</h2></section>
+  <section class="zone" id="z-twilight" style="--len:1200vh"><h2 class="sr">푸른 어스름, 해파리와 바다눈</h2></section>
+  <section class="zone" id="z-midnight" style="--len:1300vh"><h2 class="sr">한밤의 바다, 발광 생물과 초롱아귀</h2></section>
+  <section class="zone" id="z-abyss" style="--len:1200vh"><h2 class="sr">심연, 열수 분출구와 빛나는 빗해파리</h2></section>
+  <section class="zone" id="z-resurface" style="--len:1000vh"><h2 class="sr">다시 수면으로</h2></section>
+</main>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+<script src="https://cdn.jsdelivr.net/npm/lenis@1.1.13/dist/lenis.min.js"></script>
+<script type="module">
+%%JS%%
+</script>
+</body>
+</html>

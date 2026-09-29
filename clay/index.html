@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CLAY</title>
+<meta name="description" content="스크롤로 한 장씩 넘기는 클레이 스톱모션. 주황 점토 친구 핍의 하루.">
+<meta property="og:title" content="CLAY">
+<meta property="og:image" content="https://ahttoh.github.io/design-lab/assets/thumb/clay.webp">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jua&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<link rel="stylesheet" href="clay.css">
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <filter id="lumpy" x="-5%" y="-5%" width="110%" height="120%">
+    <feTurbulence type="fractalNoise" baseFrequency=".045" numOctaves="2" seed="4" result="n"/>
+    <feDisplacementMap in="SourceGraphic" in2="n" scale="5" xChannelSelector="R" yChannelSelector="G"/>
+  </filter>
+</svg>
+<div class="grain" aria-hidden="true"></div>
+<div class="load" id="load" aria-hidden="true"></div>
+
+<main>
+  <h1 class="sr-only">CLAY, 주황 점토 친구 핍의 하루</h1>
+
+  <section class="scene" id="s1" data-scene="s1" style="--len:1100vh">
+    <div class="pin">
+      <div class="stage"><canvas role="img" aria-label="점토 침실에서 핍이 잠에서 깨어 기지개를 켜고 문밖으로 나선다"></canvas></div>
+      <div class="vignette"></div>
+      <div class="card" aria-hidden="true"><p class="card-word" data-letters>CLAY</p><p class="card-sub">아침</p></div>
+      <h2 class="label">아침</h2>
+    </div>
+  </section>
+
+  <section class="scene" id="s2" data-scene="s2" style="--len:1200vh">
+    <div class="pin">
+      <div class="stage"><canvas role="img" aria-label="알록달록한 점토 골목을 핍이 걸어가다 무언가를 보고 멈춘다"></canvas></div>
+      <div class="vignette"></div>
+      <div class="card" aria-hidden="true"><p class="card-word" data-letters>골목</p></div>
+      <h2 class="label">골목</h2>
+    </div>
+  </section>
+
+  <section class="scene" id="s3" data-scene="s3" style="--len:1100vh">
+    <div class="pin">
+      <div class="stage"><canvas role="img" aria-label="나무에 걸린 빨간 풍선을 핍이 잡자 몸이 떠오른다"></canvas></div>
+      <div class="vignette"></div>
+      <div class="card" aria-hidden="true"><p class="card-word" data-letters>빨간 풍선</p></div>
+      <h2 class="label">빨간 풍선</h2>
+    </div>
+  </section>
+
+  <section class="scene" id="s4" data-scene="s4" style="--len:1200vh">
+    <div class="pin">
+      <div class="stage"><canvas role="img" aria-label="풍선을 잡은 핍이 지붕과 구름 위로 날아오르고 먹구름이 다가온다"></canvas></div>
+      <div class="vignette"></div>
+      <div class="card" aria-hidden="true"><p class="card-word" data-letters>하늘</p></div>
+      <h2 class="label">하늘</h2>
+    </div>
+  </section>
+
+  <section class="scene" id="s5" data-scene="s5" style="--len:1200vh">
+    <div class="pin">
+      <div class="stage"><canvas role="img" aria-label="폭풍 속에서 풍선이 줄어들고 핍이 점토 정원에 내려앉자 무지개가 뜬다"></canvas></div>
+      <div class="vignette"></div>
+      <div class="card" aria-hidden="true"><p class="card-word" data-letters>소나기</p></div>
+      <h2 class="label">소나기</h2>
+    </div>
+  </section>
+
+  <section class="scene" id="s6" data-scene="s6" style="--len:1200vh">
+    <div class="pin">
+      <div class="stage"><canvas role="img" aria-label="노을 진 언덕에서 핍이 뒤돌아 손을 흔든다"></canvas></div>
+      <div class="vignette"></div>
+      <div class="card" aria-hidden="true"><p class="card-word" data-letters>노을</p></div>
+      <h2 class="label">노을</h2>
+      <div class="end" id="end">
+        <p class="end-word" data-letters>안녕</p>
+        <a class="magnet" id="magnet" href="../"><span>목록으로</span></a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/lenis@1.1.13/dist/lenis.min.js"></script>
+<script src="clay.js"></script>
+</body>
+</html>

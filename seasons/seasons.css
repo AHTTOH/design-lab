@@ -1,0 +1,81 @@
+/* SEASONS page styles. Scene lengths live in the markup (--len), tempo is one multiplier below. */
+:root {
+  /* Every scene's --len is multiplied by this. 1 = about 7,200vh in total. */
+  --scroll-stretch: 1;
+
+  --sky-top: #3f86d4;
+  --sky-low: #bfe0f7;
+  --shade: #0f2a4a;
+  --paper: #ffffff;
+  --leaf: #2f7d3a;
+  --amber: #f0a33a;
+
+  --title: clamp(4.4rem, 1.4rem + 12vw, 14rem);
+  --word: clamp(6rem, 2rem + 17vw, 19rem);
+  --word-long: clamp(4.6rem, 1.6rem + 12vw, 14rem);
+  --gutter: clamp(16px, 5vw, 84px);
+  --glow: 0 .02em .5em rgba(15, 42, 74, .28), 0 .01em .08em rgba(15, 42, 74, .22);
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; overflow-x: clip; }
+body {
+  background: linear-gradient(var(--sky-top), var(--sky-low));
+  background-attachment: fixed;
+  color: var(--paper);
+  font-family: 'Hahmlet', 'Apple SD Gothic Neo', 'Malgun Gothic', serif;
+}
+::selection { background: var(--amber); color: var(--shade); }
+
+#gl { position: fixed; inset: 0; width: 100%; height: 100%; display: block; z-index: 0; }
+/* soft lens falloff so the bright sky never reads as a flat slide */
+.veil { position: fixed; inset: 0; z-index: 1; pointer-events: none; background: radial-gradient(120% 90% at 50% 45%, transparent 62%, rgba(15, 42, 74, .16) 100%); }
+
+main { position: relative; z-index: 2; }
+.scene { position: relative; height: calc(var(--len) * var(--scroll-stretch)); }
+.pin { position: sticky; top: 0; height: 100vh; overflow: hidden; pointer-events: none; }
+
+.title, .word { position: absolute; margin: 0; font-weight: 400; line-height: .92; letter-spacing: -.02em; text-shadow: var(--glow); white-space: nowrap; }
+.title { left: var(--gutter); top: 9vh; font-size: var(--title); font-weight: 300; }
+.word { font-size: var(--word); }
+.c { display: inline-block; will-change: transform, opacity, filter; }
+
+.w-spring { left: var(--gutter); bottom: 9vh; }
+.w-summer { right: var(--gutter); top: 8vh; }
+.w-autumn { left: var(--gutter); top: 9vh; }
+.w-winter { right: var(--gutter); bottom: 9vh; }
+.w-year { left: 50%; top: 50%; translate: -50% -50%; font-size: var(--word-long); font-weight: 300; }
+.w-finale { left: var(--gutter); top: 9vh; font-size: var(--word-long); }
+
+.cue { position: absolute; left: 50%; bottom: 5vh; translate: -50% 0; display: grid; justify-items: center; gap: 10px; font-size: 15px; font-weight: 500; text-shadow: var(--glow); }
+.drop { width: 2px; height: 42px; background: linear-gradient(transparent, var(--paper)); border-radius: 2px; animation: fall 1.6s cubic-bezier(.5, 0, .5, 1) infinite; transform-origin: 50% 0; }
+@keyframes fall { 0% { transform: scaleY(0); opacity: 1; } 60% { transform: scaleY(1); opacity: 1; } 100% { transform: scaleY(1) translateY(18px); opacity: 0; } }
+
+.fin { position: absolute; right: var(--gutter); bottom: 10vh; opacity: 0; }
+.magnet {
+  display: grid; place-items: center; width: 156px; height: 156px; border-radius: 50%;
+  background: rgba(255, 255, 255, .9); color: var(--leaf); text-decoration: none;
+  font: 600 1.1rem 'Hahmlet', serif;
+  box-shadow: 0 18px 40px -12px rgba(15, 42, 74, .45), inset 0 0 0 1px rgba(47, 125, 58, .25);
+  will-change: transform; transition: background-color .25s, color .25s, box-shadow .25s;
+}
+.magnet span { pointer-events: none; will-change: transform; }
+.magnet:hover { background: var(--leaf); color: var(--paper); }
+.magnet:active { box-shadow: 0 6px 16px -6px rgba(15, 42, 74, .5); }
+.magnet:focus-visible { outline: 3px solid var(--amber); outline-offset: 6px; }
+
+@media (max-width: 760px) {
+  :root { --title: 21vw; --word: 34vw; --word-long: 22vw; }
+  .title { top: 7vh; }
+  .w-summer, .w-winter { right: var(--gutter); }
+  .fin { right: 50%; translate: 50% 0; bottom: 9vh; }
+  .magnet { width: 132px; height: 132px; }
+}
+
+/* reduced motion: one still seasonal view per screen, every word visible, no Lenis */
+.reduce .scene { height: 100vh; }
+.reduce .cue { display: none; }
+.reduce .fin { opacity: 1; }
+.reduce .pin { pointer-events: none; }
+.reduce .fin { pointer-events: auto; }
+@media (prefers-reduced-motion: reduce) { .drop { animation: none; } }

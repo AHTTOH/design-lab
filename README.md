@@ -29,6 +29,11 @@ vhs/                          VHS. 브라운관·비디오테이프, WebGL 유�
 8bit/                         8BIT. 스크롤이 조작인 픽셀 횡스크롤 게임, 5개 월드, 정수 배율 픽셀. 단일 파일, NOTES.md
 popup/                        POP-UP. Three.js 색종이 팝업북, 경첩 접기, 펼침면 5개. src/*.js + build.mjs, NOTES.md
 museum/                       MUSEUM. 3D 미술관 산책, 생성 회화 6점, 조각, 레이저, 영상실. src/*.js + build.mjs, NOTES.md
+deepsea/                      DEEP SEA. 수면에서 심해까지, 굴절·커스틱, 물고기 떼, 해파리, 발광 생물. src/*.js + build.mjs, NOTES.md
+marble/                       MARBLE RUN. 루브 골드버그 구슬 장치, 스크롤 진행도 하나로 결정되어 정확히 되감김. src/*.js + build.mjs, NOTES.md
+seasons/                      SEASONS. 절차 생성 나무의 사계절, 잎·꽃 인스턴싱, 눈 쌓임 셰이더, 포인터 바람. js/ 조각 + build.mjs, NOTES.md
+clay/                         CLAY. ChatGPT 이미지 43장으로 만든 점토 스톱모션(Flow 없는 영상 규칙 첫 적용). clay.js, clay.css, NOTES.md
+assets/clay/                  CLAY 키프레임(webp, 2.3MB). tools/gen-images-clay.mjs 로 생성
 assets/vhs/, assets/popup/, assets/museum/  위 작품들의 영상·이미지
 tools/gen-images-vhs.mjs, gen-images-popup.mjs, gen-images-museum.mjs  각 작품 이미지 생성
 assets/chrome/, assets/sumi/  위 두 작품의 이미지·영상 (SUMI 영상 3편은 Flow, 36크레딧)

@@ -1,0 +1,105 @@
+/* CLAY: scroll-driven claymation. Tokens first, then layout, then the clay pieces. */
+:root {
+  --scroll-stretch: 1;
+  --tangerine: #ff7a1a;
+  --teal: #0fa39a;
+  --sky: #4fb6f2;
+  --coral: #ff5a5f;
+  --violet: #7b4ddb;
+  --sun: #ffc927;
+  --magenta: #e8398c;
+  --ink: #1d1440;
+  --tangerine-deep: #b84c00;
+  --sun-deep: #b88200;
+  --coral-deep: #a8262b;
+  --sky-deep: #1f6fa8;
+  --sky-deeper: #1b4f86;
+  --sun-burnt: #9c5d00;
+  --paper: #ffffff;
+  --display: 'Jua', 'Pretendard Variable', system-ui, sans-serif;
+  --body: 'Pretendard Variable', system-ui, sans-serif;
+  --card-word: clamp(4.6rem, 2rem + 17vw, 17rem);
+  --card-sub: clamp(2rem, 1.2rem + 3.4vw, 4.4rem);
+  --gutter: clamp(16px, 5vw, 72px);
+  --focus: 4px solid var(--sun);
+  --clay-bump: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='360' height='360'%3E%3Cfilter id='b' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.011' numOctaves='3' seed='7' stitchTiles='stitch' result='n'/%3E%3CfeDiffuseLighting in='n' surfaceScale='9' lighting-color='%23fff' result='l'%3E%3CfeDistantLight azimuth='225' elevation='52'/%3E%3C/feDiffuseLighting%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23b)'/%3E%3C/svg%3E");
+  --prints: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='640' height='640'%3E%3Cg fill='none' stroke='%23fff' stroke-opacity='.16' stroke-width='1.6'%3E%3Cellipse cx='150' cy='170' rx='6.0' ry='4.0' transform='rotate%28-20 150 170%29'/%3E%3Cellipse cx='150' cy='170' rx='11.2' ry='8.1' transform='rotate%28-20 150 170%29'/%3E%3Cellipse cx='150' cy='170' rx='16.4' ry='12.2' transform='rotate%28-20 150 170%29'/%3E%3Cellipse cx='150' cy='170' rx='21.6' ry='16.3' transform='rotate%28-20 150 170%29'/%3E%3Cellipse cx='150' cy='170' rx='26.8' ry='20.4' transform='rotate%28-20 150 170%29'/%3E%3Cellipse cx='150' cy='170' rx='32.0' ry='24.5' transform='rotate%28-20 150 170%29'/%3E%3Cellipse cx='150' cy='170' rx='37.2' ry='28.6' transform='rotate%28-20 150 170%29'/%3E%3Cellipse cx='150' cy='170' rx='42.4' ry='32.7' transform='rotate%28-20 150 170%29'/%3E%3Cellipse cx='150' cy='170' rx='47.6' ry='36.8' transform='rotate%28-20 150 170%29'/%3E%3Cellipse cx='150' cy='170' rx='52.8' ry='40.9' transform='rotate%28-20 150 170%29'/%3E%3Cellipse cx='150' cy='170' rx='58.0' ry='45.0' transform='rotate%28-20 150 170%29'/%3E%3Cellipse cx='470' cy='440' rx='6.0' ry='4.0' transform='rotate%2835 470 440%29'/%3E%3Cellipse cx='470' cy='440' rx='11.2' ry='8.1' transform='rotate%2835 470 440%29'/%3E%3Cellipse cx='470' cy='440' rx='16.4' ry='12.2' transform='rotate%2835 470 440%29'/%3E%3Cellipse cx='470' cy='440' rx='21.6' ry='16.3' transform='rotate%2835 470 440%29'/%3E%3Cellipse cx='470' cy='440' rx='26.8' ry='20.4' transform='rotate%2835 470 440%29'/%3E%3Cellipse cx='470' cy='440' rx='32.0' ry='24.5' transform='rotate%2835 470 440%29'/%3E%3Cellipse cx='470' cy='440' rx='37.2' ry='28.6' transform='rotate%2835 470 440%29'/%3E%3Cellipse cx='470' cy='440' rx='42.4' ry='32.7' transform='rotate%2835 470 440%29'/%3E%3Cellipse cx='470' cy='440' rx='47.6' ry='36.8' transform='rotate%2835 470 440%29'/%3E%3C/g%3E%3Cg fill='none' stroke='%23000' stroke-opacity='.07' stroke-width='1.2' transform='translate%281.5 1.8%29'%3E%3Cellipse cx='150' cy='170' rx='6.0' ry='4.0' transform='rotate%28-20 150 170%29'/%3E%3Cellipse cx='150' cy='170' rx='11.2' ry='8.1' transform='rotate%28-20 150 170%29'/%3E%3Cellipse cx='150' cy='170' rx='16.4' ry='12.2' transform='rotate%28-20 150 170%29'/%3E%3Cellipse cx='150' cy='170' rx='21.6' ry='16.3' transform='rotate%28-20 150 170%29'/%3E%3Cellipse cx='150' cy='170' rx='26.8' ry='20.4' transform='rotate%28-20 150 170%29'/%3E%3Cellipse cx='150' cy='170' rx='32.0' ry='24.5' transform='rotate%28-20 150 170%29'/%3E%3Cellipse cx='150' cy='170' rx='37.2' ry='28.6' transform='rotate%28-20 150 170%29'/%3E%3Cellipse cx='150' cy='170' rx='42.4' ry='32.7' transform='rotate%28-20 150 170%29'/%3E%3Cellipse cx='150' cy='170' rx='47.6' ry='36.8' transform='rotate%28-20 150 170%29'/%3E%3Cellipse cx='150' cy='170' rx='52.8' ry='40.9' transform='rotate%28-20 150 170%29'/%3E%3Cellipse cx='150' cy='170' rx='58.0' ry='45.0' transform='rotate%28-20 150 170%29'/%3E%3Cellipse cx='470' cy='440' rx='6.0' ry='4.0' transform='rotate%2835 470 440%29'/%3E%3Cellipse cx='470' cy='440' rx='11.2' ry='8.1' transform='rotate%2835 470 440%29'/%3E%3Cellipse cx='470' cy='440' rx='16.4' ry='12.2' transform='rotate%2835 470 440%29'/%3E%3Cellipse cx='470' cy='440' rx='21.6' ry='16.3' transform='rotate%2835 470 440%29'/%3E%3Cellipse cx='470' cy='440' rx='26.8' ry='20.4' transform='rotate%2835 470 440%29'/%3E%3Cellipse cx='470' cy='440' rx='32.0' ry='24.5' transform='rotate%2835 470 440%29'/%3E%3Cellipse cx='470' cy='440' rx='37.2' ry='28.6' transform='rotate%2835 470 440%29'/%3E%3Cellipse cx='470' cy='440' rx='42.4' ry='32.7' transform='rotate%2835 470 440%29'/%3E%3Cellipse cx='470' cy='440' rx='47.6' ry='36.8' transform='rotate%2835 470 440%29'/%3E%3C/g%3E%3C/svg%3E");
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--sky); color: var(--paper); font-family: var(--body); overflow-x: clip; }
+::selection { background: var(--tangerine); color: var(--paper); }
+
+/* global film layer: grain + loader */
+.grain { position: fixed; inset: -50%; z-index: 40; pointer-events: none; opacity: .11; mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  animation: grain .5s steps(6) infinite; }
+@keyframes grain { 0% { transform: translate(0, 0); } 20% { transform: translate(-4%, 3%); } 40% { transform: translate(3%, -2%); } 60% { transform: translate(-2%, -4%); } 80% { transform: translate(4%, 2%); } 100% { transform: translate(0, 0); } }
+.load { position: fixed; left: 0; top: 0; z-index: 50; width: 100%; height: 4px; pointer-events: none; transition: opacity .6s; }
+.load::after { content: ''; position: absolute; inset: 0; background: var(--sun); transform-origin: left; transform: scaleX(var(--k, 0)); }
+.load.done { opacity: 0; }
+.load[hidden] { display: none; }
+
+/* scenes */
+main { position: relative; }
+.scene { position: relative; height: calc(var(--len) * var(--scroll-stretch)); }
+.pin { position: sticky; top: 0; height: 100vh; height: 100svh; overflow: hidden; background: var(--bg); }
+.stage { position: absolute; inset: 0; will-change: transform; }
+.stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.vignette { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse at 50% 48%, transparent 55%, rgba(29, 20, 64, .38) 100%); }
+
+/* scene themes: slab colour, letter colour, letter extrusion */
+[data-scene="s1"] { --bg: var(--teal); --slab: var(--teal); --letter: var(--tangerine); --shade: var(--tangerine-deep); }
+[data-scene="s2"] { --bg: var(--coral); --slab: var(--coral); --letter: var(--sun); --shade: var(--sun-deep); }
+[data-scene="s3"] { --bg: var(--sun); --slab: var(--sun); --letter: var(--coral); --shade: var(--coral-deep); }
+[data-scene="s4"] { --bg: var(--sky); --slab: var(--sky); --letter: var(--paper); --shade: var(--sky-deep); }
+[data-scene="s5"] { --bg: var(--violet); --slab: var(--violet); --letter: var(--sky); --shade: var(--sky-deeper); }
+[data-scene="s6"] { --bg: var(--magenta); --slab: var(--magenta); --letter: var(--sun); --shade: var(--sun-burnt); }
+
+/* clay title card: a plasticine slab that peels off in steps */
+.card { position: absolute; inset: -2vh -2vw; z-index: 5; display: grid; place-items: center; align-content: center; gap: 2vh;
+  background-color: var(--slab); background-image: var(--prints), var(--clay-bump); background-size: 860px 860px, 360px 360px;
+  background-blend-mode: soft-light, soft-light; transform-origin: 50% 0; will-change: transform;
+  box-shadow: inset 0 -18px 40px rgba(29, 20, 64, .25), 0 30px 60px rgba(29, 20, 64, .35); }
+.card-word { margin: 0; font-family: var(--display); font-weight: 400; font-size: var(--card-word); line-height: .9; letter-spacing: -.02em;
+  color: var(--letter); text-align: center; filter: url(#lumpy); white-space: nowrap; }
+.card-word .lt { display: inline-block; will-change: transform;
+  text-shadow: 0 1px 0 var(--shade), 0 2px 0 var(--shade), 0 3px 0 var(--shade), 0 4px 0 var(--shade), 0 5px 0 var(--shade), 0 6px 0 var(--shade), 0 7px 0 var(--shade), 0 8px 0 var(--shade), 0 16px 22px rgba(29, 20, 64, .38); }
+.card-word.small { font-size: calc(var(--card-word) * .5); }
+.card-sub { margin: 0; font-family: var(--display); font-size: var(--card-sub); color: var(--letter); filter: url(#lumpy);
+  text-shadow: 0 1px 0 var(--shade), 0 2px 0 var(--shade), 0 3px 0 var(--shade), 0 8px 14px rgba(29, 20, 64, .3); }
+
+/* static label for reduced motion */
+.label { display: none; }
+
+/* finale */
+.end { position: absolute; left: 0; right: 0; bottom: 8vh; z-index: 6; display: grid; justify-items: center; gap: 3vh; opacity: 0; pointer-events: none; }
+.end-word { margin: 0; font-family: var(--display); font-size: clamp(3.6rem, 1.6rem + 9vw, 10rem); line-height: .9; color: var(--sun); filter: url(#lumpy);
+  text-shadow: 0 1px 0 var(--sun-deep), 0 2px 0 var(--sun-deep), 0 3px 0 var(--sun-deep), 0 4px 0 var(--sun-deep), 0 5px 0 var(--sun-deep), 0 6px 0 var(--sun-deep), 0 14px 24px rgba(29, 20, 64, .5); }
+.magnet { display: grid; place-items: center; width: 148px; height: 148px; border-radius: 47% 53% 50% 50% / 52% 46% 54% 48%;
+  background-color: var(--tangerine); background-image: var(--clay-bump); background-size: 360px 360px; background-blend-mode: soft-light;
+  color: var(--paper); font: 400 1.35rem var(--display); text-decoration: none; will-change: transform;
+  box-shadow: inset -8px -12px 18px rgba(160, 50, 0, .45), inset 8px 10px 16px rgba(255, 200, 150, .5), 0 18px 30px rgba(29, 20, 64, .4); }
+.magnet span { pointer-events: none; will-change: transform; color: var(--ink); }
+.magnet:hover { background-color: #ff8a33; }
+.magnet:active { transform: scale(.94); }
+.magnet:focus-visible { outline: var(--focus); outline-offset: 8px; }
+a:focus-visible { outline: var(--focus); outline-offset: 4px; }
+
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* landscape: Pip stands left of centre in the last shot, so the ending sits over the sea on the right */
+@media (orientation: landscape) {
+  .end { left: auto; right: 7vw; bottom: 9vh; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .grain { animation: none; }
+  .load { transition: none; }
+  .card { display: none; }
+  .label { display: block; position: absolute; left: var(--gutter); top: 4vh; z-index: 5; margin: 0; padding: .35em .7em .45em; border-radius: 18px;
+    background-color: var(--slab); background-image: var(--clay-bump); background-size: 360px 360px; background-blend-mode: soft-light;
+    font-family: var(--display); font-size: clamp(1.6rem, 1rem + 2.4vw, 3rem); color: var(--letter);
+    text-shadow: 0 2px 0 var(--shade), 0 3px 0 var(--shade); box-shadow: 0 10px 24px rgba(29, 20, 64, .3); }
+  .end { opacity: 1; pointer-events: auto; }
+}
